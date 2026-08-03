@@ -1,2 +1,1 @@
-# ScamTrainer 1
-123
+# ScamTrainer
