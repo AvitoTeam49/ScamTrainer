@@ -1,5 +1,7 @@
 import {observer} from "mobx-react-lite";
-import isMenuOpen from "../store/isMenuOpen.ts";
+import isMenuOpen from "../store/MenuOpen.ts";
+import Chat from "../store/Chat.ts";
+import type {IChat} from "../types/types.tsx";
 
 const Sidebar = observer(() => {
 
@@ -22,11 +24,9 @@ const Sidebar = observer(() => {
             </button>
 
             <ul className="user-list">
-                <li className="user-item">User 1</li>
-                <li className="user-item">User 2</li>
-                <li className="user-item">User 3</li>
-                <li className="user-item">User 4</li>
-                <li className="user-item">User 5</li>
+                {Chat.chats.map((chat: IChat) => (
+                    <li className="user-item">Chat {chat.role} {chat.difficulty} {chat.id}</li>
+                ))}
             </ul>
         </div>
     );

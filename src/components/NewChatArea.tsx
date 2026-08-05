@@ -1,11 +1,14 @@
-import {useState} from "react";
-import isMenuOpen from "../store/isMenuOpen.ts";
+import {use, useState} from "react";
+import isMenuOpen from "../store/MenuOpen.ts";
+import {observer} from "mobx-react-lite/src/observer.ts";
+import Chat from "../store/Chat.ts";
 
 
-const NewChatArea = () => {
+const NewChatArea = observer(() => {
 
     const [selectedRole, setSelectedRole] = useState<string | null>(null)
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
+    const [counter, setCounter] = useState<number>(2)
 
     return (
         <div className="main-content">
@@ -45,9 +48,12 @@ const NewChatArea = () => {
                     Сложная</button>
             </div>
 
-            <button className="create-btn">Создать</button>
+            <button className="create-btn" onClick={() => {
+                Chat.addNewChat({id: counter, role: selectedRole ? selectedRole : "buyer", difficulty: selectedDifficulty ? selectedDifficulty : "easy"})
+                setCounter(prev => prev + 1)
+            }}>Создать</button>
         </div>
     );
-};
+});
 
 export default NewChatArea;

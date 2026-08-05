@@ -1,12 +1,12 @@
 import Sidebar from "./Sidebar.tsx";
-import NewChatArea from "./NewChatArea.tsx";
+import ChatArea from "./ChatArea.tsx";
 
 const Main = () => {
 
     return (
         <div className="main">
             <Sidebar/>
-            <NewChatArea/>
+            <ChatArea/>
         </div>
     );
 };

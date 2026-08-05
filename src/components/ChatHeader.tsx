@@ -1,5 +1,5 @@
 import {observer} from "mobx-react-lite/src/observer.ts";
-import isMenuOpen from "../store/isMenuOpen.ts";
+import isMenuOpen from "../store/MenuOpen.ts";
 
 
 const ChatHeader = observer(() => {
