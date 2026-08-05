@@ -143,6 +143,12 @@
     border-radius: 4px;
 }
 
+.menu-toggle.fixed {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+}
+
 .menu-toggle:hover { background: var(--bg-gray); }
 
 .user-avatar {
@@ -250,6 +256,84 @@
 .input-wrapper input::placeholder { color: #999; }
 
 
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-color: var(--bg-color);
+}
+
+.title {
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 30px;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    margin-top: 10px;
+    text-align: center;
+    width: 100%;
+}
+.button-group {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 500px;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.option-btn {
+    flex: 1;
+    padding: 12px 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: var(--bg-gray);
+    color: var(--text-primary);
+    transition: background-color 0.2s;
+    min-height: 44px;
+}
+
+.option-btn:hover {
+    background-color: #e5e6e8;
+}
+
+.option-btn.active {
+    background-color: #dbf3ff;
+    color: #000;
+}
+
+
+.create-btn {
+    margin-top: 20px;
+    padding: 14px 60px;
+    border: none;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: #00AAFF;
+    color: #ffffff;
+    transition: background-color 0.2s;
+    min-height: 48px;
+}
+.create-btn:hover {
+    background-color: #00628e;
+}
+
+
+
 @media (max-width: 1024px) {
     .sidebar {
         width: 240px;
@@ -259,6 +343,9 @@
 @media (max-width: 768px) {
 
     .menu-toggle { display: block; }
+    .menu-toggle.fixed {
+        display: block;
+    }
     .close-sidebar-btn { display: block; }
 
 
@@ -290,6 +377,12 @@
     .message-bubble {
         max-width: 85%;
     }
+
+    .title { font-size: 28px; }
+    .button-group { max-width: 100%; gap: 8px; }
+    .option-btn { padding: 10px 8px; font-size: 13px; }
+    .create-btn { width: 100%; max-width: 300px; }
+
 }
 
 

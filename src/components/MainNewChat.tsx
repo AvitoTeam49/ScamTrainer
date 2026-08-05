@@ -1,14 +1,14 @@
 import Sidebar from "./Sidebar.tsx";
 import NewChatArea from "./NewChatArea.tsx";
 
-const Main = () => {
 
+const MainNewChat = () => {
     return (
         <div className="main">
-            <Sidebar/>
-            <NewChatArea/>
+            <Sidebar></Sidebar>
+            <NewChatArea></NewChatArea>
         </div>
     );
 };
 
-export default Main;
+export default MainNewChat;

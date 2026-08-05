@@ -1,13 +1,10 @@
+import {observer} from "mobx-react-lite";
+import isMenuOpen from "../store/isMenuOpen.ts";
 
-interface SidebarProps {
-    isMenuOpen: boolean,
-    toggleMenu: () => void
-}
-
-const Sidebar = ({isMenuOpen, toggleMenu}: SidebarProps) => {
+const Sidebar = observer(() => {
 
     return (
-        <div className={`sidebar ${isMenuOpen ? 'open' : ''}`}>
+        <div className={`sidebar ${isMenuOpen.menu ? 'open' : ''}`}>
             <div className="logo-container">
                 <div className="logo-text">
                 <span className="logo-icon">
@@ -17,7 +14,7 @@ const Sidebar = ({isMenuOpen, toggleMenu}: SidebarProps) => {
                 </span>
                     Avito
                 </div>
-                <button className="close-sidebar-btn" onClick={toggleMenu}>✕</button>
+                <button className="close-sidebar-btn" onClick={isMenuOpen.setFalse}>✕</button>
             </div>
 
             <button className="new-chat-btn">
@@ -33,6 +30,6 @@ const Sidebar = ({isMenuOpen, toggleMenu}: SidebarProps) => {
             </ul>
         </div>
     );
-};
+});
 
 export default Sidebar;

@@ -1,11 +1,11 @@
-interface ChatHeaderProps {
-    toggleMenu: () => void
-}
+import {observer} from "mobx-react-lite/src/observer.ts";
+import isMenuOpen from "../store/isMenuOpen.ts";
 
-const ChatHeader = ({toggleMenu}: ChatHeaderProps) => {
+
+const ChatHeader = observer(() => {
     return (
         <div className="chat-header">
-            <button className="menu-toggle" onClick={toggleMenu}>☰</button>
+            <button className="menu-toggle" onClick={isMenuOpen.setTrue}>☰</button>
             <div className="user-avatar">U</div>
             <div className="chat-info">
                 <div className="chat-title">Комплект GPU</div>
@@ -13,6 +13,6 @@ const ChatHeader = ({toggleMenu}: ChatHeaderProps) => {
             </div>
         </div>
     );
-};
+});
 
 export default ChatHeader;
