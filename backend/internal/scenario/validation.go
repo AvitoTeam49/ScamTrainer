@@ -138,7 +138,7 @@ const (
 	visited
 )
 
-func validateDAG(scenario *Scenario) interface{} {
+func validateDAG(scenario *Scenario) error {
 	states := make(
 		map[string]visitState,
 		len(scenario.Nodes),

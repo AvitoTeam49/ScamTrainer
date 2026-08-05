@@ -92,7 +92,7 @@ func loadScenario(path string) (*Scenario, error) {
 	return &loaded, nil
 }
 
-func (r *YAMLRepository) GetByID(
+func (r *YAMLRepository) GetById(
 	_ context.Context,
 	scenarioID string,
 ) (*Scenario, error) {
