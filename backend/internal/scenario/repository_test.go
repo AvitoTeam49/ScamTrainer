@@ -25,7 +25,7 @@ func TestNewYAMLRepository_LoadsScenario(t *testing.T) {
 		t.Fatalf("create repository: %v", err)
 	}
 
-	loaded, err := repository.GetByID(
+	loaded, err := repository.GetById(
 		context.Background(),
 		"seller_fake_delivery",
 	)
@@ -70,7 +70,7 @@ func TestYAMLRepository_GetByID_NotFound(t *testing.T) {
 		t.Fatalf("create repository: %v", err)
 	}
 
-	_, err = repository.GetByID(
+	_, err = repository.GetById(
 		context.Background(),
 		"missing_scenario",
 	)
