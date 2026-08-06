@@ -80,8 +80,6 @@ func TestSendMessage_SafeTransitionAddsScore(t *testing.T) {
 	}
 }
 
-// The engine rejects a transition that does not belong to the current node, and
-// the rejection must reach the model as a tool result rather than kill the turn.
 func TestSendMessage_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
 	fixture := newFixture(t, "start")
 
@@ -110,8 +108,6 @@ func TestSendMessage_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
 	}
 }
 
-// The transition ids offered to the model must come from the node the chat
-// currently sits on.
 func TestSendMessage_ToolEnumComesFromCurrentNode(t *testing.T) {
 	fixture := newFixture(t, "start")
 	fixture.agent.replies = []*agent.Reply{{Content: "Здравствуйте"}}
@@ -160,8 +156,6 @@ func TestSendMessage_RejectsChatParkedOnEndingNode(t *testing.T) {
 		t.Fatalf("got %v, want %v", err, chatdomain.ErrChatFinished)
 	}
 }
-
-// ---- fixture ----
 
 type fixture struct {
 	service   *Service

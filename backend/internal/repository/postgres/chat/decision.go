@@ -51,8 +51,6 @@ func (r *DecisionRepository) ListByChatID(
 	return decisions, nil
 }
 
-// Create writes the decision and the resulting chat score in a single
-// statement, so the journal and the score can never drift apart.
 func (r *DecisionRepository) Create(
 	ctx context.Context,
 	decision *chatdomain.Decision,

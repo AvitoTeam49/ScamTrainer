@@ -114,10 +114,6 @@ func newLogger() (*zap.Logger, error) {
 	return logger, nil
 }
 
-// newScenarioSource loads the scenario graphs. They are parsed and validated
-// here so that a broken YAML file stops the process before it starts accepting
-// traffic, and they are mandatory: the graphs drive both the conversation and
-// its scoring.
 func newScenarioSource(
 	ctx context.Context,
 	cfg config.ScenariosConfig,

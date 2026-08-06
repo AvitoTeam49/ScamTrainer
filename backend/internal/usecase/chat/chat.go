@@ -16,10 +16,6 @@ const (
 	defaultMaxToolRounds = 4
 )
 
-// ScenarioSource resolves the scenario id stored on a chat to the scenario
-// graph. The chat domain identifies scenarios by bigint while the graphs are
-// keyed by the string ids from their YAML files; that translation is configured
-// at the composition root, not here.
 type ScenarioSource interface {
 	Scenario(ctx context.Context, scenarioID int64) (*scenariodomain.Scenario, error)
 }
@@ -67,7 +63,6 @@ func New(
 	}
 }
 
-// StartChat opens a training session positioned at the scenario's start node.
 func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title string) (*chatdomain.Chat, error) {
 	scenario, err := s.scenarios.Scenario(ctx, scenarioID)
 	if err != nil {
@@ -161,8 +156,6 @@ func (s *Service) ListMessages(
 	return s.messages.ListByChatID(ctx, chatID, cursor)
 }
 
-// ListDecisions returns the debrief: every transition the user was moved
-// through, with the feedback declared for it in the scenario.
 func (s *Service) ListDecisions(
 	ctx context.Context,
 	chatID int64,
@@ -218,8 +211,6 @@ func (s *Service) runAgent(
 			})
 		}
 
-		// A transition may have moved the chat to an ending node; there is
-		// nothing left to decide once the scenario is over.
 		if !chat.IsActive() {
 			break
 		}
@@ -248,8 +239,6 @@ func (s *Service) executeTool(
 	}
 }
 
-// applyTransition hands the choice to the scenario engine, which owns every
-// scoring rule, and mirrors the resulting decision onto the chat.
 func (s *Service) applyTransition(
 	ctx context.Context,
 	scenario *scenariodomain.Scenario,
@@ -324,9 +313,6 @@ func (s *Service) finishChat(ctx context.Context, chat *chatdomain.Chat, argumen
 	return fmt.Sprintf("chat finished with score %d", chat.Score), nil
 }
 
-// sessionFrom rebuilds the engine's session from the chat row. The engine is
-// stateless, so the scenario domain keeps owning the traversal rules while the
-// chat row remains the only place where progress is stored.
 func sessionFrom(scenario *scenariodomain.Scenario, chat *chatdomain.Chat) *scenariodomain.TrainingSession {
 	return &scenariodomain.TrainingSession{
 		ScenarioID:    scenario.ID,
@@ -349,8 +335,6 @@ func currentNode(scenario *scenariodomain.Scenario, chat *chatdomain.Chat) (*sce
 	return node, nil
 }
 
-// systemPrompt combines the scenario-wide character with the instruction
-// attached to the node the conversation currently sits on.
 func systemPrompt(scenario *scenariodomain.Scenario, node *scenariodomain.Node) string {
 	parts := make([]string, 0, 3)
 

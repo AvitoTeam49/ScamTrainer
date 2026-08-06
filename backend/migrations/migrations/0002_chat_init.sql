@@ -6,10 +6,7 @@ CREATE TABLE chats (
     title           text NOT NULL,
     status          text NOT NULL CHECK (status IN ('active', 'finished', 'abandoned')),
     resume          text NOT NULL DEFAULT '',
-    -- Счёт ведёт движок сценариев: старт с нуля и накопление знаковых
-    -- score_delta из переходов графа, поэтому значение может быть отрицательным.
     score           bigint NOT NULL DEFAULT 0,
-    -- Позиция в графе сценария.
     current_node_id text NOT NULL DEFAULT '',
     created_at      timestamptz NOT NULL,
     finished_at     timestamptz
@@ -27,8 +24,6 @@ CREATE TABLE messages (
 
 CREATE INDEX idx_messages_chat_id_id ON messages (chat_id, id DESC);
 
--- Журнал принятых решений повторяет scenario.Decision: он и есть разбор
--- диалога, который получает пользователь.
 CREATE TABLE chat_decisions (
     id             bigserial PRIMARY KEY,
     chat_id        bigint NOT NULL REFERENCES chats (id) ON DELETE CASCADE,

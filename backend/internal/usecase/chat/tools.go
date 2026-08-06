@@ -27,9 +27,6 @@ type jsonSchema struct {
 	AdditionalProperties bool                    `json:"additionalProperties"`
 }
 
-// toolDefinitionsFor builds the tool set for one scenario node. The available
-// transition ids differ per node, so the schema cannot be a package-level
-// constant: it is derived from the graph on every request.
 func toolDefinitionsFor(node *scenariodomain.Node) []agent.ToolDefinition {
 	return []agent.ToolDefinition{
 		{
@@ -69,9 +66,6 @@ func applyTransitionSchema(node *scenariodomain.Node) []byte {
 	})
 }
 
-// describeTransition turns a scenario transition into a hint for the model. The
-// description and examples are authored in the scenario YAML precisely so the
-// model can match a free-form reply onto one of the graph edges.
 func describeTransition(transition scenariodomain.Transition) string {
 	described := fmt.Sprintf("%s — %s", transition.ID, strings.TrimSpace(transition.Description))
 

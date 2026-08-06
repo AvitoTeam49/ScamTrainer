@@ -42,14 +42,6 @@ type PostgresConfig struct {
 	DSN string
 }
 
-// ScenariosConfig wires the YAML scenario graphs into the chat domain. The
-// graphs drive both the conversation and its scoring, so they are required.
-//
-// Chat stores scenario_id as bigint, while the scenario graphs are keyed by
-// string ids taken from their YAML files. The mapping is declared explicitly
-// instead of being derived from the directory listing: chats.scenario_id is
-// already persisted, so an id that shifts when a YAML file is added would
-// silently repoint existing chats at a different scenario.
 type ScenariosConfig struct {
 	Dir string
 	Map map[int64]string
@@ -160,7 +152,6 @@ func loadScenarios() (ScenariosConfig, error) {
 	return ScenariosConfig{Dir: dir, Map: mapping}, nil
 }
 
-// parseScenarioMap reads pairs like "1:seller_fake_delivery,2:buyer_prepay".
 func parseScenarioMap(raw string) (map[int64]string, error) {
 	mapping := make(map[int64]string)
 

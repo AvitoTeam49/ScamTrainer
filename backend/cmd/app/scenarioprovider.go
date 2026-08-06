@@ -10,13 +10,6 @@ import (
 
 var _ chatusecase.ScenarioSource = (*graphScenarioSource)(nil)
 
-// graphScenarioSource resolves the scenario id a chat stores to the scenario
-// graph that drives the conversation and its scoring.
-//
-// The two domains disagree on how a scenario is identified: chat persists
-// scenario_id as bigint, while the graphs are keyed by the string ids declared
-// in their YAML files. The translation table comes from configuration and is
-// resolved here, at the composition root, leaving both domains untouched.
 type graphScenarioSource struct {
 	scenarios scenariodomain.Repository
 	ids       map[int64]string
@@ -41,8 +34,6 @@ func (s *graphScenarioSource) Scenario(
 	return s.scenarios.GetByID(ctx, graphID)
 }
 
-// verify fails fast when SCENARIOS_MAP points at a scenario that no YAML file
-// declares, so a typo surfaces at startup instead of mid-conversation.
 func (s *graphScenarioSource) verify(ctx context.Context) error {
 	for scenarioID, graphID := range s.ids {
 		if _, err := s.scenarios.GetByID(ctx, graphID); err != nil {
