@@ -3,6 +3,7 @@ package chatusecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -11,7 +12,28 @@ import (
 	scenariodomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/scenario"
 )
 
-func TestSendMessage_UnsafeTransitionSubtractsScoreAndEndsScenario(t *testing.T) {
+func TestSendMessage_StoresAndPublishesUserMessageWithoutCallingAgent(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	message, err := fixture.service.SendMessage(context.Background(), 1, 42, "Привет")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+
+	if message.SenderType != chatdomain.SenderTypeUser {
+		t.Fatalf("sender: got %q, want %q", message.SenderType, chatdomain.SenderTypeUser)
+	}
+
+	if fixture.agent.calls != 0 {
+		t.Fatalf("agent must not be called synchronously, got %d calls", fixture.agent.calls)
+	}
+
+	if got := fixture.events.types(); len(got) != 1 || got[0] != chatdomain.EventTypeMessage {
+		t.Fatalf("events: got %v, want [message]", got)
+	}
+}
+
+func TestRunAgentTurn_UnsafeTransitionSubtractsScoreAndEndsScenario(t *testing.T) {
 	fixture := newFixture(t, "start")
 
 	fixture.agent.replies = []*agent.Reply{
@@ -26,8 +48,12 @@ func TestSendMessage_UnsafeTransitionSubtractsScoreAndEndsScenario(t *testing.T)
 		t.Fatalf("send message: %v", err)
 	}
 
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
+	}
+
 	if got := fixture.chats.chat.Score; got != -20 {
-		t.Fatalf("score: got %d, want -20 (score_delta of the chosen transition)", got)
+		t.Fatalf("score: got %d, want -20", got)
 	}
 
 	if got := fixture.chats.chat.CurrentNodeID; got != "unsafe_ending" {
@@ -42,21 +68,18 @@ func TestSendMessage_UnsafeTransitionSubtractsScoreAndEndsScenario(t *testing.T)
 		t.Fatalf("resume should carry the transition feedback, got %q", fixture.chats.chat.Resume)
 	}
 
-	if len(fixture.decisions.created) != 1 {
-		t.Fatalf("decisions journal: got %d entries, want 1", len(fixture.decisions.created))
+	want := []chatdomain.EventType{
+		chatdomain.EventTypeMessage,
+		chatdomain.EventTypeDecision,
+		chatdomain.EventTypeChat,
+		chatdomain.EventTypeMessage,
 	}
-
-	stored := fixture.decisions.created[0]
-	if stored.TransitionID != "open_link" || stored.ScoreDelta != -20 {
-		t.Fatalf("stored decision: got %+v", stored)
-	}
-
-	if fixture.decisions.scores[0] != -20 {
-		t.Fatalf("score written with the journal entry: got %d, want -20", fixture.decisions.scores[0])
+	if got := fixture.events.types(); !equalTypes(got, want) {
+		t.Fatalf("event sequence: got %v, want %v", got, want)
 	}
 }
 
-func TestSendMessage_SafeTransitionAddsScore(t *testing.T) {
+func TestRunAgentTurn_SafeTransitionAddsScore(t *testing.T) {
 	fixture := newFixture(t, "start")
 
 	fixture.agent.replies = []*agent.Reply{
@@ -67,8 +90,8 @@ func TestSendMessage_SafeTransitionAddsScore(t *testing.T) {
 		{Content: "Хорошо"},
 	}
 
-	if _, err := fixture.service.SendMessage(context.Background(), 1, 42, "По ссылкам не перехожу"); err != nil {
-		t.Fatalf("send message: %v", err)
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
 	}
 
 	if got := fixture.chats.chat.Score; got != 20 {
@@ -80,7 +103,7 @@ func TestSendMessage_SafeTransitionAddsScore(t *testing.T) {
 	}
 }
 
-func TestSendMessage_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
+func TestRunAgentTurn_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
 	fixture := newFixture(t, "start")
 
 	fixture.agent.replies = []*agent.Reply{
@@ -91,8 +114,8 @@ func TestSendMessage_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
 		{Content: "Продолжаем"},
 	}
 
-	if _, err := fixture.service.SendMessage(context.Background(), 1, 42, "Что-то нейтральное"); err != nil {
-		t.Fatalf("send message: %v", err)
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
 	}
 
 	if got := fixture.chats.chat.Score; got != 0 {
@@ -108,12 +131,34 @@ func TestSendMessage_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
 	}
 }
 
-func TestSendMessage_ToolEnumComesFromCurrentNode(t *testing.T) {
+func TestRunAgentTurn_PublishesErrorEventWhenAgentFails(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.agent.err = errors.New("deepseek is down")
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err == nil {
+		t.Fatal("expected the agent failure to be returned")
+	}
+
+	events := fixture.events.recorded()
+	if len(events) != 1 || events[0].Type != chatdomain.EventTypeError {
+		t.Fatalf("events: got %v, want one error event", fixture.events.types())
+	}
+
+	if events[0].Reason != genericFailureReason {
+		t.Fatalf("reason must not leak internals: got %q", events[0].Reason)
+	}
+
+	if events[0].ChatID != 1 {
+		t.Fatalf("error event chat id: got %d, want 1", events[0].ChatID)
+	}
+}
+
+func TestRunAgentTurn_ToolEnumComesFromCurrentNode(t *testing.T) {
 	fixture := newFixture(t, "start")
 	fixture.agent.replies = []*agent.Reply{{Content: "Здравствуйте"}}
 
-	if _, err := fixture.service.SendMessage(context.Background(), 1, 42, "Привет"); err != nil {
-		t.Fatalf("send message: %v", err)
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
 	}
 
 	var schema struct {
@@ -143,8 +188,12 @@ func TestSendMessage_RejectsChatOfAnotherUser(t *testing.T) {
 	fixture := newFixture(t, "start")
 
 	_, err := fixture.service.SendMessage(context.Background(), 1, 999, "Привет")
-	if err != chatdomain.ErrChatAccessDenied {
+	if !errors.Is(err, chatdomain.ErrChatAccessDenied) {
 		t.Fatalf("got %v, want %v", err, chatdomain.ErrChatAccessDenied)
+	}
+
+	if len(fixture.events.recorded()) != 0 {
+		t.Fatal("a rejected message must not be published")
 	}
 }
 
@@ -152,8 +201,29 @@ func TestSendMessage_RejectsChatParkedOnEndingNode(t *testing.T) {
 	fixture := newFixture(t, "safe_ending")
 
 	_, err := fixture.service.SendMessage(context.Background(), 1, 42, "Привет")
-	if err != chatdomain.ErrChatFinished {
+	if !errors.Is(err, chatdomain.ErrChatFinished) {
 		t.Fatalf("got %v, want %v", err, chatdomain.ErrChatFinished)
+	}
+}
+
+func TestStartChat_PositionsChatOnStartNode(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	chat, err := fixture.service.StartChat(context.Background(), 42, 7, "")
+	if err != nil {
+		t.Fatalf("start chat: %v", err)
+	}
+
+	if chat.CurrentNodeID != "start" {
+		t.Fatalf("current node: got %q, want %q", chat.CurrentNodeID, "start")
+	}
+
+	if chat.Score != 0 {
+		t.Fatalf("score: got %d, want 0", chat.Score)
+	}
+
+	if chat.Title != "Поддельная ссылка на доставку" {
+		t.Fatalf("title should fall back to the scenario title, got %q", chat.Title)
 	}
 }
 
@@ -161,6 +231,7 @@ type fixture struct {
 	service   *Service
 	chats     *fakeChatRepository
 	decisions *fakeDecisionRepository
+	events    *fakeEventPublisher
 	agent     *fakeAgent
 }
 
@@ -176,6 +247,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 		CurrentNodeID: currentNodeID,
 	}}
 	decisions := &fakeDecisionRepository{}
+	events := &fakeEventPublisher{}
 	chatAgent := &fakeAgent{}
 
 	return &fixture{
@@ -184,13 +256,29 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 			&fakeMessageRepository{},
 			decisions,
 			&fakeScenarioSource{scenario: testScenario()},
+			events,
 			chatAgent,
 			Options{},
 		),
 		chats:     chats,
 		decisions: decisions,
+		events:    events,
 		agent:     chatAgent,
 	}
+}
+
+func equalTypes(got, want []chatdomain.EventType) bool {
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func applyTransitionCall(transitionID string) agent.ToolCall {
@@ -256,6 +344,27 @@ func (f *fakeScenarioSource) Scenario(context.Context, int64) (*scenariodomain.S
 	return f.scenario, nil
 }
 
+type fakeEventPublisher struct {
+	events []chatdomain.Event
+}
+
+func (f *fakeEventPublisher) Publish(_ context.Context, event chatdomain.Event) {
+	f.events = append(f.events, event)
+}
+
+func (f *fakeEventPublisher) recorded() []chatdomain.Event {
+	return f.events
+}
+
+func (f *fakeEventPublisher) types() []chatdomain.EventType {
+	types := make([]chatdomain.EventType, 0, len(f.events))
+	for _, event := range f.events {
+		types = append(types, event.Type)
+	}
+
+	return types
+}
+
 type fakeChatRepository struct {
 	chat *chatdomain.Chat
 }
@@ -271,7 +380,7 @@ func (f *fakeChatRepository) ListByUserID(
 }
 
 func (f *fakeChatRepository) Create(_ context.Context, chat *chatdomain.Chat) error {
-	f.chat = chat
+	chat.ID = 1
 	return nil
 }
 
@@ -319,17 +428,20 @@ type fakeAgent struct {
 	replies  []*agent.Reply
 	requests []agent.Request
 	calls    int
+	err      error
 }
 
 func (f *fakeAgent) Complete(_ context.Context, request agent.Request) (*agent.Reply, error) {
 	f.requests = append(f.requests, request)
+	f.calls++
 
-	if f.calls >= len(f.replies) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	if f.calls > len(f.replies) {
 		return &agent.Reply{Content: "..."}, nil
 	}
 
-	reply := f.replies[f.calls]
-	f.calls++
-
-	return reply, nil
+	return f.replies[f.calls-1], nil
 }

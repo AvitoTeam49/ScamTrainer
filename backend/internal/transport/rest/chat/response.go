@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
+	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
 )
 
 const (
@@ -29,16 +29,28 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, chatdomain.ErrChatNotFound):
+	case errors.Is(err, chatdomain.ErrChatNotFound), errors.Is(err, chatdomain.ErrScenarioNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: err.Error()})
 	case errors.Is(err, chatdomain.ErrChatAccessDenied):
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: err.Error()})
-	case errors.Is(err, errInvalidRequest), errors.Is(err, chatdomain.ErrInvalidCursor):
+	case errors.Is(err, chatdomain.ErrChatFinished):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
+	case errors.Is(err, errInvalidRequest),
+		errors.Is(err, chatdomain.ErrInvalidCursor),
+		errors.Is(err, chatdomain.ErrMessageEmpty):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 	default:
 		slog.ErrorContext(r.Context(), "chat request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "internal error"})
 	}
+}
+
+func decodeJSON(r *http.Request, target any) error {
+	if err := json.NewDecoder(r.Body).Decode(target); err != nil {
+		return fmt.Errorf("%w: malformed json body", errInvalidRequest)
+	}
+
+	return nil
 }
 
 func pathID(r *http.Request, name string) (int64, error) {
@@ -48,6 +60,24 @@ func pathID(r *http.Request, name string) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func requestUserID(r *http.Request) (int64, error) {
+	raw := r.Header.Get("X-User-ID")
+	if raw == "" {
+		raw = r.URL.Query().Get("user_id")
+	}
+
+	if raw == "" {
+		return 0, fmt.Errorf("%w: X-User-ID header or user_id query param is required", errInvalidRequest)
+	}
+
+	userID, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || userID <= 0 {
+		return 0, fmt.Errorf("%w: user_id must be a positive integer", errInvalidRequest)
+	}
+
+	return userID, nil
 }
 
 func cursorFrom(r *http.Request) (chatdomain.Cursor, error) {

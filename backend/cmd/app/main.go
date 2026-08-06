@@ -13,6 +13,7 @@ import (
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent/deepseek"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/config"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/eventbus"
 	chatpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/chat"
 	userspostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/users"
 	scenarioyaml "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/yaml/scenario"
@@ -70,11 +71,14 @@ func run() error {
 
 	mux := http.NewServeMux()
 
+	bus := eventbus.New(0)
+
 	chatService := chatusecase.New(
 		chatpostgres.NewChatRepository(pool),
 		chatpostgres.NewMessageRepository(pool),
 		chatpostgres.NewDecisionRepository(pool),
 		scenarios,
+		bus,
 		deepseek.New(deepseek.Config{
 			BaseURL:    cfg.DeepSeek.BaseURL,
 			APIKey:     cfg.DeepSeek.APIKey,
@@ -84,7 +88,7 @@ func run() error {
 		}),
 		chatusecase.Options{},
 	)
-	chatrest.NewHandler(chatService).Register(mux)
+	chatrest.NewHandler(chatService, bus).Register(mux)
 
 	usersService := usersusecase.NewUserService(userspostgres.NewPostgresRepository(pool), logger)
 	usersrest.New(usersService, logger).Register(mux)
@@ -94,7 +98,7 @@ func run() error {
 		Handler: http.StripPrefix(cfg.HTTP.Prefix, mux),
 	}
 
-	return serve(ctx, server, cfg.HTTP.ShutdownTimeout)
+	return serve(ctx, server, cfg.HTTP.ShutdownTimeout, bus.Close)
 }
 
 func newLogger() (*zap.Logger, error) {
@@ -137,7 +141,12 @@ func newScenarioSource(
 	return source, nil
 }
 
-func serve(ctx context.Context, server *http.Server, shutdownTimeout time.Duration) error {
+func serve(
+	ctx context.Context,
+	server *http.Server,
+	shutdownTimeout time.Duration,
+	beforeShutdown func(),
+) error {
 	failed := make(chan error, 1)
 
 	go func() {
@@ -154,6 +163,8 @@ func serve(ctx context.Context, server *http.Server, shutdownTimeout time.Durati
 	case <-ctx.Done():
 		slog.Info("shutdown signal received")
 	}
+
+	beforeShutdown()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()

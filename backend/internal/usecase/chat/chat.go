@@ -3,6 +3,7 @@ package chatusecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,10 +15,15 @@ import (
 const (
 	defaultHistoryLimit  = 50
 	defaultMaxToolRounds = 4
+	genericFailureReason = "internal error"
 )
 
 type ScenarioSource interface {
 	Scenario(ctx context.Context, scenarioID int64) (*scenariodomain.Scenario, error)
+}
+
+type EventPublisher interface {
+	Publish(ctx context.Context, event chatdomain.Event)
 }
 
 type Options struct {
@@ -30,6 +36,7 @@ type Service struct {
 	messages      chatdomain.MessageRepository
 	decisions     chatdomain.DecisionRepository
 	scenarios     ScenarioSource
+	events        EventPublisher
 	engine        *scenariodomain.Engine
 	agent         agent.Agent
 	historyLimit  int
@@ -41,6 +48,7 @@ func New(
 	messages chatdomain.MessageRepository,
 	decisions chatdomain.DecisionRepository,
 	scenarios ScenarioSource,
+	events EventPublisher,
 	chatAgent agent.Agent,
 	options Options,
 ) *Service {
@@ -56,6 +64,7 @@ func New(
 		messages:      messages,
 		decisions:     decisions,
 		scenarios:     scenarios,
+		events:        events,
 		engine:        scenariodomain.NewEngine(),
 		agent:         chatAgent,
 		historyLimit:  options.HistoryLimit,
@@ -104,8 +113,7 @@ func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content
 		return nil, err
 	}
 
-	node, err := currentNode(scenario, chat)
-	if err != nil {
+	if _, err := currentNode(scenario, chat); err != nil {
 		return nil, err
 	}
 
@@ -118,14 +126,39 @@ func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content
 		return nil, err
 	}
 
+	s.events.Publish(ctx, chatdomain.MessageEvent(userMessage))
+
+	return userMessage, nil
+}
+
+func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
+	chat, err := s.chats.GetByID(ctx, chatID)
+	if err != nil {
+		return s.fail(ctx, chatID, err)
+	}
+
+	if !chat.IsActive() {
+		return nil
+	}
+
+	scenario, err := s.scenarios.Scenario(ctx, chat.ScenarioID)
+	if err != nil {
+		return s.fail(ctx, chatID, err)
+	}
+
+	node, err := currentNode(scenario, chat)
+	if err != nil {
+		return s.fail(ctx, chatID, err)
+	}
+
 	history, err := s.messages.ListByChatID(ctx, chat.ID, chatdomain.Cursor{Limit: s.historyLimit})
 	if err != nil {
-		return nil, err
+		return s.fail(ctx, chatID, err)
 	}
 
 	reply, err := s.runAgent(ctx, scenario, chat, node, buildMessages(systemPrompt(scenario, node), history))
 	if err != nil {
-		return nil, err
+		return s.fail(ctx, chatID, err)
 	}
 
 	agentMessage := &chatdomain.Message{
@@ -134,10 +167,37 @@ func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content
 		Content:    reply,
 	}
 	if err := s.messages.Create(ctx, agentMessage); err != nil {
-		return nil, err
+		return s.fail(ctx, chatID, err)
 	}
 
-	return agentMessage, nil
+	s.events.Publish(ctx, chatdomain.MessageEvent(agentMessage))
+
+	return nil
+}
+
+func (s *Service) fail(ctx context.Context, chatID int64, err error) error {
+	s.events.Publish(ctx, chatdomain.ErrorEvent(chatID, failureReason(err)))
+
+	return err
+}
+
+func failureReason(err error) string {
+	known := []error{
+		chatdomain.ErrChatNotFound,
+		chatdomain.ErrChatFinished,
+		chatdomain.ErrChatAccessDenied,
+		chatdomain.ErrScenarioNotFound,
+		scenariodomain.ErrScenarioNotFound,
+		scenariodomain.ErrCurrentNodeNotFound,
+	}
+
+	for _, sentinel := range known {
+		if errors.Is(err, sentinel) {
+			return sentinel.Error()
+		}
+	}
+
+	return genericFailureReason
 }
 
 func (s *Service) GetChat(ctx context.Context, chatID int64) (*chatdomain.Chat, error) {
@@ -275,7 +335,11 @@ func (s *Service) applyTransition(
 		return "", err
 	}
 
+	s.events.Publish(ctx, chatdomain.DecisionEvent(stored))
+
 	if session.Status != scenariodomain.SessionStatusCompleted {
+		s.events.Publish(ctx, chatdomain.ChatEvent(chat))
+
 		return fmt.Sprintf(
 			"transition %s applied, current score %d",
 			decision.TransitionID,
@@ -290,6 +354,8 @@ func (s *Service) applyTransition(
 	if err := s.chats.Update(ctx, chat); err != nil {
 		return "", err
 	}
+
+	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
 
 	return fmt.Sprintf("scenario completed with score %d", chat.Score), nil
 }
@@ -309,6 +375,8 @@ func (s *Service) finishChat(ctx context.Context, chat *chatdomain.Chat, argumen
 	if err := s.chats.Update(ctx, chat); err != nil {
 		return "", err
 	}
+
+	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
 
 	return fmt.Sprintf("chat finished with score %d", chat.Score), nil
 }
