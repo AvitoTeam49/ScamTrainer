@@ -1,4 +1,4 @@
-import {observer} from "mobx-react-lite/src/observer.ts";
+import {observer} from "mobx-react-lite";
 import menuOpen from "../store/MenuOpen.ts";
 
 

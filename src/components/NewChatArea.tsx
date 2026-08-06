@@ -1,6 +1,6 @@
 import {useState} from "react";
 import menuOpen from "../store/MenuOpen.ts";
-import {observer} from "mobx-react-lite/src/observer.ts";
+import {observer} from "mobx-react-lite";
 import Chat from "../store/Chat.ts";
 import {useNavigate} from "react-router-dom";
 

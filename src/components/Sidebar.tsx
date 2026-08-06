@@ -16,7 +16,7 @@ const Sidebar = observer(({id}: SidebarProps) => {
     return (
         <div className={`sidebar ${menuOpen.menu ? 'open' : ''}`}>
             <div className="logo-container">
-                <div className="logo-text">
+                <div className="logo-text" onClick={() => navigate("/")}>
                 <span className="logo-icon">
                     <span className="logo-dot dot-blue"></span>
                     <span className="logo-dot dot-red"></span>
@@ -33,7 +33,7 @@ const Sidebar = observer(({id}: SidebarProps) => {
 
             <ul className="chat-list">
                 {Chat.chats.map((chat: IChat) => (
-                    <li
+                    <li key={chat.id}
                         className={`chat-item ${String(chat.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${chat.id}`)}>Chat {chat.role} {chat.difficulty} {chat.id}</li>
                 ))}
             </ul>

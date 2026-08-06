@@ -49,6 +49,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    cursor: pointer;
 }
 
 .logo-icon {
@@ -238,19 +239,23 @@
     padding: 15px 20px 20px 20px;
     background-color: var(--bg-color);
     border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
     background-color: var(--bg-gray);
     border-radius: 10px;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
+    padding: 10px 16px;
 }
 
 .input-wrapper input {
-    width: 100%;
+    flex: 1;
     border: none;
     background: transparent;
     outline: none;
@@ -259,6 +264,24 @@
 }
 .input-wrapper input::placeholder { color: #999; }
 
+.send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background-color: #00AAFF;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.send-btn:hover {
+    background-color: #0088cc;
+}
 
 .main-content {
     flex-grow: 1;

@@ -1,21 +1,22 @@
-const MessageContainer = () => {
+import {observer} from "mobx-react-lite";
+import Messages from "../store/Messages.ts";
+import type {IMessage} from "../types/types.tsx";
+
+const MessageContainer = observer(() => {
+
     return (
         <div className="messages-container">
-            <div className="message-wrapper other">
-                <span className="message-time">15:36</span>
-                <div className="message-bubble">
-                    Привет, хотел бы купить комплект!
+            {Messages.messages.map((mess: IMessage)=> (
+                <div className={`message-wrapper ${mess.who === "other" ? "other" : "own"}`}>
+                    <span className="message-time">{mess.time}</span>
+                    <div className="message-bubble">
+                        {mess.content}
+                    </div>
                 </div>
-            </div>
+            ) )}
 
-            <div className="message-wrapper own">
-                <span className="message-time">15:37</span>
-                <div className="message-bubble">
-                    Здравствуйте, хорошо.
-                </div>
-            </div>
         </div>
     );
-};
+});
 
 export default MessageContainer;
