@@ -1,21 +1,23 @@
-import {use, useState} from "react";
-import isMenuOpen from "../store/MenuOpen.ts";
+import {useState} from "react";
+import menuOpen from "../store/MenuOpen.ts";
 import {observer} from "mobx-react-lite/src/observer.ts";
 import Chat from "../store/Chat.ts";
+import {useNavigate} from "react-router-dom";
 
 
 const NewChatArea = observer(() => {
 
     const [selectedRole, setSelectedRole] = useState<string | null>(null)
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
-    const [counter, setCounter] = useState<number>(2)
+    let old_id = Chat.chats[Chat.chats.length - 1].id
+    const navigate = useNavigate()
 
     return (
         <div className="main-content">
 
             <button
                 className="menu-toggle fixed"
-                onClick={isMenuOpen.setTrue}
+                onClick={menuOpen.setTrue}
             >
                 ☰
             </button>
@@ -49,8 +51,8 @@ const NewChatArea = observer(() => {
             </div>
 
             <button className="create-btn" onClick={() => {
-                Chat.addNewChat({id: counter, role: selectedRole ? selectedRole : "buyer", difficulty: selectedDifficulty ? selectedDifficulty : "easy"})
-                setCounter(prev => prev + 1)
+                Chat.addNewChat({id: old_id + 1, role: selectedRole ? selectedRole : "buyer", difficulty: selectedDifficulty ? selectedDifficulty : "easy"})
+                navigate(`/chat/${old_id + 1}`)
             }}>Создать</button>
         </div>
     );

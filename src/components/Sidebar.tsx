@@ -1,12 +1,20 @@
 import {observer} from "mobx-react-lite";
-import isMenuOpen from "../store/MenuOpen.ts";
+import menuOpen from "../store/MenuOpen.ts";
 import Chat from "../store/Chat.ts";
 import type {IChat} from "../types/types.tsx";
+import {useNavigate} from "react-router-dom";
 
-const Sidebar = observer(() => {
+
+interface SidebarProps {
+    id?: string
+}
+
+const Sidebar = observer(({id}: SidebarProps) => {
+
+    const navigate = useNavigate()
 
     return (
-        <div className={`sidebar ${isMenuOpen.menu ? 'open' : ''}`}>
+        <div className={`sidebar ${menuOpen.menu ? 'open' : ''}`}>
             <div className="logo-container">
                 <div className="logo-text">
                 <span className="logo-icon">
@@ -16,16 +24,17 @@ const Sidebar = observer(() => {
                 </span>
                     Avito
                 </div>
-                <button className="close-sidebar-btn" onClick={isMenuOpen.setFalse}>✕</button>
+                <button className="close-sidebar-btn" onClick={menuOpen.setFalse}>✕</button>
             </div>
 
-            <button className="new-chat-btn">
+            <button className="new-chat-btn" onClick={() => navigate("/")}>
                 <span>+</span> Новый чат
             </button>
 
-            <ul className="user-list">
+            <ul className="chat-list">
                 {Chat.chats.map((chat: IChat) => (
-                    <li className="user-item">Chat {chat.role} {chat.difficulty} {chat.id}</li>
+                    <li
+                        className={`chat-item ${String(chat.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${chat.id}`)}>Chat {chat.role} {chat.difficulty} {chat.id}</li>
                 ))}
             </ul>
         </div>

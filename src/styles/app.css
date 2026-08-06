@@ -97,14 +97,14 @@
 }
 .new-chat-btn:hover { background-color: #e5e6e8; }
 
-.user-list {
+.chat-list {
     padding: 0 20px 20px 20px;
     list-style: none;
     overflow-y: auto;
     flex-grow: 1;
 }
 
-.user-item {
+.chat-item {
     padding: 14px 10px;
     border-radius: 8px;
     cursor: pointer;
@@ -112,7 +112,11 @@
     transition: background 0.2s;
     -webkit-tap-highlight-color: transparent;
 }
-.user-item:hover, .user-item:active { background-color: #f5f5f5; }
+.chat-item:hover, .chat-item:active { background-color: #f5f5f5; }
+
+.chat-item.active {
+    background-color: #bdbdbd;
+}
 
 .chat-area {
     flex-grow: 1;
