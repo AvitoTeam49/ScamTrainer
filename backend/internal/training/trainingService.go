@@ -33,6 +33,12 @@ type StartResult struct {
 	Node    *scenario.Node
 }
 
+type TurnResult struct {
+	Session  *scenario.TrainingSession
+	Node     *scenario.Node
+	Decision *scenario.Decision
+}
+
 func (s *TrainingService) Start(
 	ctx context.Context,
 	userID string,
@@ -75,5 +81,72 @@ func (s *TrainingService) Start(
 	return &StartResult{
 		Session: session,
 		Node:    startNode,
+	}, nil
+}
+
+func (s *TrainingService) ApplyChoice(
+	ctx context.Context,
+	sessionID string,
+	transitionID string,
+) (*TurnResult, error) {
+	session, err := s.sessions.GetById(
+		ctx,
+		sessionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"get training session %q: %w",
+			sessionID,
+			err,
+		)
+	}
+
+	trainingScenario, err := s.scenarios.GetById(
+		ctx,
+		session.ScenarioID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"get scenario %q: %w",
+			session.ScenarioID,
+			err,
+		)
+	}
+
+	decision, err := s.engine.ApplyChoice(
+		trainingScenario,
+		session,
+		transitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"apply transition %q to session %q: %w",
+			transitionID,
+			sessionID,
+			err,
+		)
+	}
+
+	node, exists := trainingScenario.Nodes[session.CurrentNodeID]
+	if !exists {
+		return nil, fmt.Errorf(
+			"current node %q not found after transition %q",
+			session.CurrentNodeID,
+			transitionID,
+		)
+	}
+
+	if err := s.sessions.Update(ctx, session); err != nil {
+		return nil, fmt.Errorf(
+			"update training session %q: %w",
+			sessionID,
+			err,
+		)
+	}
+
+	return &TurnResult{
+		Session:  session,
+		Node:     node,
+		Decision: decision,
 	}, nil
 }
