@@ -142,7 +142,7 @@ func (q *Queries) DeleteChat(ctx context.Context, id int64) (int64, error) {
 }
 
 const getChatByID = `-- name: GetChatByID :one
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
+SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE id = $1
 `
@@ -158,15 +158,15 @@ func (q *Queries) GetChatByID(ctx context.Context, id int64) (Chat, error) {
 		&i.Status,
 		&i.Resume,
 		&i.Score,
+		&i.CurrentNodeID,
 		&i.CreatedAt,
 		&i.FinishedAt,
-		&i.CurrentNodeID,
 	)
 	return i, err
 }
 
 const listChatsByUserID = `-- name: ListChatsByUserID :many
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
+SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE user_id = $1
   AND ($2::bigint = 0 OR id < $2::bigint)
@@ -197,9 +197,9 @@ func (q *Queries) ListChatsByUserID(ctx context.Context, arg ListChatsByUserIDPa
 			&i.Status,
 			&i.Resume,
 			&i.Score,
+			&i.CurrentNodeID,
 			&i.CreatedAt,
 			&i.FinishedAt,
-			&i.CurrentNodeID,
 		); err != nil {
 			return nil, err
 		}

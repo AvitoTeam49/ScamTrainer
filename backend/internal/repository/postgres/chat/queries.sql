@@ -1,10 +1,10 @@
 -- name: GetChatByID :one
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
+SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE id = sqlc.arg(id);
 
 -- name: ListChatsByUserID :many
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
+SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.arg(after_id)::bigint = 0 OR id < sqlc.arg(after_id)::bigint)

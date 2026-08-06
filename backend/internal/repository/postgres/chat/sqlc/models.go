@@ -16,9 +16,9 @@ type Chat struct {
 	Status        string     `json:"status"`
 	Resume        string     `json:"resume"`
 	Score         int64      `json:"score"`
+	CurrentNodeID string     `json:"current_node_id"`
 	CreatedAt     time.Time  `json:"created_at"`
 	FinishedAt    *time.Time `json:"finished_at"`
-	CurrentNodeID string     `json:"current_node_id"`
 }
 
 type ChatDecision struct {
