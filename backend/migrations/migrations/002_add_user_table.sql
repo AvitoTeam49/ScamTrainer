@@ -46,12 +46,6 @@ CREATE OR REPLACE TRIGGER update_user_progress_updated_at
 -- +goose Down
 -- +goose StatementBegin
 
-DROP TRIGGER IF EXISTS update_user_progress_updated_at ON users_schema.user_progress;
-DROP TRIGGER IF EXISTS update_users_updated_at ON users_schema.users;
-DROP FUNCTION IF EXISTS users_schema.update_updated_at_column();
-
-DROP TABLE IF EXISTS users_schema.user_progress;
-DROP TABLE IF EXISTS users_schema.users;
 DROP SCHEMA IF EXISTS users_schema CASCADE;
 
 -- +goose StatementEnd
