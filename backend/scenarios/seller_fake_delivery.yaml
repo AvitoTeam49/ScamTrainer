@@ -1,0 +1,70 @@
+id: seller_fake_delivery
+title: Поддельная ссылка на доставку
+role: seller
+start_node_id: initial_offer
+
+llm:
+  character_prompt: |
+    Ты играешь роль потенциального покупателя.
+    Общайся естественно и не выходи за рамки текущей вершины сценария.
+
+nodes:
+  initial_offer:
+    type: decision
+
+    message:
+      author: scammer
+      text: |
+        Здравствуйте! Я готов купить товар.
+        Давайте оформим доставку по моей ссылке.
+
+    llm:
+      reply_instruction: |
+        Убеждай продавца воспользоваться отправленной ссылкой,
+        но не придумывай новые способы оплаты. 
+
+    transitions:
+      - id: open_link
+        description: Пользователь соглашается открыть внешнюю ссылку
+        examples:
+          - Хорошо, сейчас открою
+          - Куда нажать?
+        to_node_id: unsafe_ending
+        score_delta: -20
+        feedback: |
+          Переход по ссылке от собеседника повышает риск фишинга.
+        risk_tags:
+          - external_link
+          - phishing
+
+      - id: stay_on_platform
+        description: Пользователь предлагает оформить сделку внутри платформы
+        examples:
+          - Давайте оформим через приложение
+          - По сторонним ссылкам я не перехожу
+        to_node_id: safe_ending
+        score_delta: 20
+        feedback: |
+          Сделка внутри платформы является более безопасным вариантом.
+        risk_tags:
+          - external_link
+
+  safe_ending:
+    type: ending
+    title: Безопасное завершение
+    outcome: safe
+
+    message:
+      author: system
+      text: |
+        Вы отказались переходить по внешней ссылке.
+
+  unsafe_ending:
+    type: ending
+    title: Рискованное завершение
+    outcome: unsafe
+
+    message:
+      author: system
+      text: |
+        Ссылка вела на поддельную страницу оплаты.
