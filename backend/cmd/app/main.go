@@ -13,10 +13,8 @@ import (
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent/deepseek"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/config"
-	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
 	chatpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/chat"
 	userspostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/users"
-	scenariostatic "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/static/scenario"
 	scenarioyaml "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/yaml/scenario"
 	chatrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/chat"
 	usersrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/users"
@@ -65,7 +63,7 @@ func run() error {
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
-	scenarios, err := newScenarioProvider(cfg.Scenarios, logger)
+	scenarios, err := newScenarioSource(ctx, cfg.Scenarios, logger)
 	if err != nil {
 		return err
 	}
@@ -75,7 +73,7 @@ func run() error {
 	chatService := chatusecase.New(
 		chatpostgres.NewChatRepository(pool),
 		chatpostgres.NewMessageRepository(pool),
-		chatpostgres.NewIncidentRepository(pool),
+		chatpostgres.NewDecisionRepository(pool),
 		scenarios,
 		deepseek.New(deepseek.Config{
 			BaseURL:    cfg.DeepSeek.BaseURL,
@@ -99,9 +97,6 @@ func run() error {
 	return serve(ctx, server, cfg.HTTP.ShutdownTimeout)
 }
 
-// newLogger builds the application logger. The users domain is written against
-// zap while the chat transport logs through log/slog, so slog is pointed at the
-// same JSON stream to keep a single log format on stderr.
 func newLogger() (*zap.Logger, error) {
 	cfg := zap.NewProductionConfig()
 	cfg.OutputPaths = []string{"stderr"}
@@ -119,24 +114,23 @@ func newLogger() (*zap.Logger, error) {
 	return logger, nil
 }
 
-// newScenarioProvider prefers the scenario graphs, which are the source of truth
-// for scenario content. When SCENARIOS_DIR is not set the chat domain keeps
-// using its built-in static prompt.
-func newScenarioProvider(
+// newScenarioSource loads the scenario graphs. They are parsed and validated
+// here so that a broken YAML file stops the process before it starts accepting
+// traffic, and they are mandatory: the graphs drive both the conversation and
+// its scoring.
+func newScenarioSource(
+	ctx context.Context,
 	cfg config.ScenariosConfig,
 	logger *zap.Logger,
-) (chatdomain.ScenarioProvider, error) {
-	if !cfg.Enabled() {
-		logger.Info("scenario graphs disabled, falling back to the static prompt")
-
-		return scenariostatic.NewStaticProvider(""), nil
-	}
-
-	// Graphs are parsed and validated here so that a broken YAML file stops the
-	// process before it starts accepting traffic.
+) (*graphScenarioSource, error) {
 	graphs, err := scenarioyaml.NewYAMLRepository(cfg.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load scenarios: %w", err)
+	}
+
+	source := newGraphScenarioSource(graphs, cfg.Map)
+	if err := source.verify(ctx); err != nil {
+		return nil, fmt.Errorf("failed to verify scenario mapping: %w", err)
 	}
 
 	logger.Info("scenario graphs loaded",
@@ -144,7 +138,7 @@ func newScenarioProvider(
 		zap.Int("mapped_scenarios", len(cfg.Map)),
 	)
 
-	return newGraphScenarioProvider(graphs, cfg.Map), nil
+	return source, nil
 }
 
 func serve(ctx context.Context, server *http.Server, shutdownTimeout time.Duration) error {

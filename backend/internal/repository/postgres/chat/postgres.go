@@ -12,7 +12,7 @@ import (
 var (
 	_ chatdomain.ChatRepository     = (*ChatRepository)(nil)
 	_ chatdomain.MessageRepository  = (*MessageRepository)(nil)
-	_ chatdomain.IncidentRepository = (*IncidentRepository)(nil)
+	_ chatdomain.DecisionRepository = (*DecisionRepository)(nil)
 )
 
 type DB interface {

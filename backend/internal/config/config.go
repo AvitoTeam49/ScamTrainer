@@ -42,7 +42,8 @@ type PostgresConfig struct {
 	DSN string
 }
 
-// ScenariosConfig wires the YAML scenario graphs into the chat domain.
+// ScenariosConfig wires the YAML scenario graphs into the chat domain. The
+// graphs drive both the conversation and its scoring, so they are required.
 //
 // Chat stores scenario_id as bigint, while the scenario graphs are keyed by
 // string ids taken from their YAML files. The mapping is declared explicitly
@@ -54,8 +55,6 @@ type ScenariosConfig struct {
 	Map map[int64]string
 }
 
-// Enabled reports whether YAML-backed scenarios should replace the static
-// prompt provider.
 func (c ScenariosConfig) Enabled() bool {
 	return c.Dir != ""
 }
@@ -149,18 +148,11 @@ func loadDeepSeek() (DeepSeekConfig, error) {
 
 func loadScenarios() (ScenariosConfig, error) {
 	dir := os.Getenv("SCENARIOS_DIR")
-	raw := os.Getenv("SCENARIOS_MAP")
-
 	if dir == "" {
-		if raw != "" {
-			return ScenariosConfig{}, fmt.Errorf(
-				"%w: SCENARIOS_MAP is set but SCENARIOS_DIR is empty", ErrInvalidEnv)
-		}
-
-		return ScenariosConfig{}, nil
+		return ScenariosConfig{}, fmt.Errorf("%w: SCENARIOS_DIR", ErrMissingEnv)
 	}
 
-	mapping, err := parseScenarioMap(raw)
+	mapping, err := parseScenarioMap(os.Getenv("SCENARIOS_MAP"))
 	if err != nil {
 		return ScenariosConfig{}, err
 	}

@@ -10,12 +10,12 @@ import (
 
 type Querier interface {
 	CreateChat(ctx context.Context, arg CreateChatParams) (int64, error)
-	CreateIncident(ctx context.Context, arg CreateIncidentParams) (CreateIncidentRow, error)
+	CreateDecision(ctx context.Context, arg CreateDecisionParams) (CreateDecisionRow, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (CreateMessageRow, error)
 	DeleteChat(ctx context.Context, id int64) (int64, error)
 	GetChatByID(ctx context.Context, id int64) (Chat, error)
 	ListChatsByUserID(ctx context.Context, arg ListChatsByUserIDParams) ([]Chat, error)
-	ListIncidentsByChatID(ctx context.Context, arg ListIncidentsByChatIDParams) ([]Incident, error)
+	ListDecisionsByChatID(ctx context.Context, arg ListDecisionsByChatIDParams) ([]ChatDecision, error)
 	ListMessagesByChatID(ctx context.Context, arg ListMessagesByChatIDParams) ([]Message, error)
 	UpdateChat(ctx context.Context, arg UpdateChatParams) (int64, error)
 }

@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-const maxScore = 100
-
 type ChatStatus string
 
 const (
@@ -25,25 +23,27 @@ func (s ChatStatus) Valid() bool {
 }
 
 type Chat struct {
-	ID         int64
-	UserID     int64
-	ScenarioID int64
-	Title      string
-	Status     ChatStatus
-	Resume     string
-	Score      int64
-	CreatedAt  time.Time
-	FinishedAt *time.Time
+	ID            int64
+	UserID        int64
+	ScenarioID    int64
+	Title         string
+	Status        ChatStatus
+	Resume        string
+	Score         int64
+	CurrentNodeID string
+	CreatedAt     time.Time
+	FinishedAt    *time.Time
 }
 
-func NewChat(userID, scenarioID int64, title string) *Chat {
+func NewChat(userID, scenarioID int64, title, startNodeID string) *Chat {
 	return &Chat{
-		UserID:     userID,
-		ScenarioID: scenarioID,
-		Title:      title,
-		Status:     ChatStatusActive,
-		Score:      maxScore,
-		CreatedAt:  time.Now(),
+		UserID:        userID,
+		ScenarioID:    scenarioID,
+		Title:         title,
+		Status:        ChatStatusActive,
+		Score:         0,
+		CurrentNodeID: startNodeID,
+		CreatedAt:     time.Now(),
 	}
 }
 
@@ -51,15 +51,13 @@ func (c *Chat) IsActive() bool {
 	return c.Status == ChatStatusActive
 }
 
-func (c *Chat) ApplyIncident(incident *Incident) error {
+func (c *Chat) ApplyDecision(scoreDelta int, targetNodeID string) error {
 	if !c.IsActive() {
 		return ErrChatFinished
 	}
 
-	c.Score -= incident.Type.Weight()
-	if c.Score < 0 {
-		c.Score = 0
-	}
+	c.Score += int64(scoreDelta)
+	c.CurrentNodeID = targetNodeID
 
 	return nil
 }

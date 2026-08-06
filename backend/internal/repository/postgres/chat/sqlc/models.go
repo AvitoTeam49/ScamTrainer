@@ -9,23 +9,27 @@ import (
 )
 
 type Chat struct {
-	ID         int64      `json:"id"`
-	UserID     int64      `json:"user_id"`
-	ScenarioID int64      `json:"scenario_id"`
-	Title      string     `json:"title"`
-	Status     string     `json:"status"`
-	Resume     string     `json:"resume"`
-	Score      int64      `json:"score"`
-	CreatedAt  time.Time  `json:"created_at"`
-	FinishedAt *time.Time `json:"finished_at"`
+	ID            int64      `json:"id"`
+	UserID        int64      `json:"user_id"`
+	ScenarioID    int64      `json:"scenario_id"`
+	Title         string     `json:"title"`
+	Status        string     `json:"status"`
+	Resume        string     `json:"resume"`
+	Score         int64      `json:"score"`
+	CreatedAt     time.Time  `json:"created_at"`
+	FinishedAt    *time.Time `json:"finished_at"`
+	CurrentNodeID string     `json:"current_node_id"`
 }
 
-type Incident struct {
-	ID        int64     `json:"id"`
-	ChatID    int64     `json:"chat_id"`
-	Type      string    `json:"type"`
-	Comment   string    `json:"comment"`
-	CreatedAt time.Time `json:"created_at"`
+type ChatDecision struct {
+	ID           int64     `json:"id"`
+	ChatID       int64     `json:"chat_id"`
+	NodeID       string    `json:"node_id"`
+	TransitionID string    `json:"transition_id"`
+	TargetNodeID string    `json:"target_node_id"`
+	ScoreDelta   int64     `json:"score_delta"`
+	Feedback     string    `json:"feedback"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Message struct {

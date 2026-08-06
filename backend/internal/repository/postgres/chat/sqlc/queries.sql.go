@@ -11,7 +11,7 @@ import (
 )
 
 const createChat = `-- name: CreateChat :one
-INSERT INTO chats (user_id, scenario_id, title, status, resume, score, created_at)
+INSERT INTO chats (user_id, scenario_id, title, status, resume, score, current_node_id, created_at)
 VALUES (
     $1,
     $2,
@@ -19,19 +19,21 @@ VALUES (
     $4,
     $5,
     $6,
-    $7
+    $7,
+    $8
 )
 RETURNING id
 `
 
 type CreateChatParams struct {
-	UserID     int64     `json:"user_id"`
-	ScenarioID int64     `json:"scenario_id"`
-	Title      string    `json:"title"`
-	Status     string    `json:"status"`
-	Resume     string    `json:"resume"`
-	Score      int64     `json:"score"`
-	CreatedAt  time.Time `json:"created_at"`
+	UserID        int64     `json:"user_id"`
+	ScenarioID    int64     `json:"scenario_id"`
+	Title         string    `json:"title"`
+	Status        string    `json:"status"`
+	Resume        string    `json:"resume"`
+	Score         int64     `json:"score"`
+	CurrentNodeID string    `json:"current_node_id"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (int64, error) {
@@ -42,6 +44,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (int64, 
 		arg.Status,
 		arg.Resume,
 		arg.Score,
+		arg.CurrentNodeID,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -49,40 +52,54 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (int64, 
 	return id, err
 }
 
-const createIncident = `-- name: CreateIncident :one
-WITH new_incident AS (
-    INSERT INTO incidents (chat_id, type, comment)
-    VALUES ($1, $2, $3)
+const createDecision = `-- name: CreateDecision :one
+WITH new_decision AS (
+    INSERT INTO chat_decisions (chat_id, node_id, transition_id, target_node_id, score_delta, feedback)
+    VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6
+    )
     RETURNING id, created_at
 ), updated_chat AS (
     UPDATE chats
-    SET score = $4
+    SET score = $7,
+        current_node_id = $4
     WHERE id = $1
 )
 SELECT id, created_at
-FROM new_incident
+FROM new_decision
 `
 
-type CreateIncidentParams struct {
-	ChatID  int64  `json:"chat_id"`
-	Type    string `json:"type"`
-	Comment string `json:"comment"`
-	Score   int64  `json:"score"`
+type CreateDecisionParams struct {
+	ChatID       int64  `json:"chat_id"`
+	NodeID       string `json:"node_id"`
+	TransitionID string `json:"transition_id"`
+	TargetNodeID string `json:"target_node_id"`
+	ScoreDelta   int64  `json:"score_delta"`
+	Feedback     string `json:"feedback"`
+	Score        int64  `json:"score"`
 }
 
-type CreateIncidentRow struct {
+type CreateDecisionRow struct {
 	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func (q *Queries) CreateIncident(ctx context.Context, arg CreateIncidentParams) (CreateIncidentRow, error) {
-	row := q.db.QueryRow(ctx, createIncident,
+func (q *Queries) CreateDecision(ctx context.Context, arg CreateDecisionParams) (CreateDecisionRow, error) {
+	row := q.db.QueryRow(ctx, createDecision,
 		arg.ChatID,
-		arg.Type,
-		arg.Comment,
+		arg.NodeID,
+		arg.TransitionID,
+		arg.TargetNodeID,
+		arg.ScoreDelta,
+		arg.Feedback,
 		arg.Score,
 	)
-	var i CreateIncidentRow
+	var i CreateDecisionRow
 	err := row.Scan(&i.ID, &i.CreatedAt)
 	return i, err
 }
@@ -125,7 +142,7 @@ func (q *Queries) DeleteChat(ctx context.Context, id int64) (int64, error) {
 }
 
 const getChatByID = `-- name: GetChatByID :one
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at
+SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
 FROM chats
 WHERE id = $1
 `
@@ -143,12 +160,13 @@ func (q *Queries) GetChatByID(ctx context.Context, id int64) (Chat, error) {
 		&i.Score,
 		&i.CreatedAt,
 		&i.FinishedAt,
+		&i.CurrentNodeID,
 	)
 	return i, err
 }
 
 const listChatsByUserID = `-- name: ListChatsByUserID :many
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at
+SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
 FROM chats
 WHERE user_id = $1
   AND ($2::bigint = 0 OR id < $2::bigint)
@@ -181,6 +199,7 @@ func (q *Queries) ListChatsByUserID(ctx context.Context, arg ListChatsByUserIDPa
 			&i.Score,
 			&i.CreatedAt,
 			&i.FinishedAt,
+			&i.CurrentNodeID,
 		); err != nil {
 			return nil, err
 		}
@@ -192,35 +211,38 @@ func (q *Queries) ListChatsByUserID(ctx context.Context, arg ListChatsByUserIDPa
 	return items, nil
 }
 
-const listIncidentsByChatID = `-- name: ListIncidentsByChatID :many
-SELECT id, chat_id, type, comment, created_at
-FROM incidents
+const listDecisionsByChatID = `-- name: ListDecisionsByChatID :many
+SELECT id, chat_id, node_id, transition_id, target_node_id, score_delta, feedback, created_at
+FROM chat_decisions
 WHERE chat_id = $1
   AND ($2::bigint = 0 OR id < $2::bigint)
 ORDER BY id DESC
 LIMIT $3
 `
 
-type ListIncidentsByChatIDParams struct {
+type ListDecisionsByChatIDParams struct {
 	ChatID  int64 `json:"chat_id"`
 	AfterID int64 `json:"after_id"`
 	Lim     int32 `json:"lim"`
 }
 
-func (q *Queries) ListIncidentsByChatID(ctx context.Context, arg ListIncidentsByChatIDParams) ([]Incident, error) {
-	rows, err := q.db.Query(ctx, listIncidentsByChatID, arg.ChatID, arg.AfterID, arg.Lim)
+func (q *Queries) ListDecisionsByChatID(ctx context.Context, arg ListDecisionsByChatIDParams) ([]ChatDecision, error) {
+	rows, err := q.db.Query(ctx, listDecisionsByChatID, arg.ChatID, arg.AfterID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Incident
+	var items []ChatDecision
 	for rows.Next() {
-		var i Incident
+		var i ChatDecision
 		if err := rows.Scan(
 			&i.ID,
 			&i.ChatID,
-			&i.Type,
-			&i.Comment,
+			&i.NodeID,
+			&i.TransitionID,
+			&i.TargetNodeID,
+			&i.ScoreDelta,
+			&i.Feedback,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -280,17 +302,19 @@ SET title = $1,
     status = $2,
     resume = $3,
     score = $4,
-    finished_at = $5
-WHERE id = $6
+    current_node_id = $5,
+    finished_at = $6
+WHERE id = $7
 `
 
 type UpdateChatParams struct {
-	Title      string     `json:"title"`
-	Status     string     `json:"status"`
-	Resume     string     `json:"resume"`
-	Score      int64      `json:"score"`
-	FinishedAt *time.Time `json:"finished_at"`
-	ID         int64      `json:"id"`
+	Title         string     `json:"title"`
+	Status        string     `json:"status"`
+	Resume        string     `json:"resume"`
+	Score         int64      `json:"score"`
+	CurrentNodeID string     `json:"current_node_id"`
+	FinishedAt    *time.Time `json:"finished_at"`
+	ID            int64      `json:"id"`
 }
 
 func (q *Queries) UpdateChat(ctx context.Context, arg UpdateChatParams) (int64, error) {
@@ -299,6 +323,7 @@ func (q *Queries) UpdateChat(ctx context.Context, arg UpdateChatParams) (int64, 
 		arg.Status,
 		arg.Resume,
 		arg.Score,
+		arg.CurrentNodeID,
 		arg.FinishedAt,
 		arg.ID,
 	)

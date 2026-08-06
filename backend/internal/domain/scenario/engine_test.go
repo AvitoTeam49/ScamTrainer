@@ -119,8 +119,6 @@ func TestEngine_ApplyChoice_MovesToNextNode(t *testing.T) {
 		t.Fatalf("ApplyChoice() error = %v", err)
 	}
 
-	// Проверяем новое состояние сессии.
-
 	if session.CurrentNodeID != "pressure" {
 		t.Errorf(
 			"CurrentNodeID = %q, want %q",

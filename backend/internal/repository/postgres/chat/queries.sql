@@ -1,10 +1,10 @@
 -- name: GetChatByID :one
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at
+SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
 FROM chats
 WHERE id = sqlc.arg(id);
 
 -- name: ListChatsByUserID :many
-SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at
+SELECT id, user_id, scenario_id, title, status, resume, score, created_at, finished_at, current_node_id
 FROM chats
 WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.arg(after_id)::bigint = 0 OR id < sqlc.arg(after_id)::bigint)
@@ -12,7 +12,7 @@ ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
 -- name: CreateChat :one
-INSERT INTO chats (user_id, scenario_id, title, status, resume, score, created_at)
+INSERT INTO chats (user_id, scenario_id, title, status, resume, score, current_node_id, created_at)
 VALUES (
     sqlc.arg(user_id),
     sqlc.arg(scenario_id),
@@ -20,6 +20,7 @@ VALUES (
     sqlc.arg(status),
     sqlc.arg(resume),
     sqlc.arg(score),
+    sqlc.arg(current_node_id),
     sqlc.arg(created_at)
 )
 RETURNING id;
@@ -30,6 +31,7 @@ SET title = sqlc.arg(title),
     status = sqlc.arg(status),
     resume = sqlc.arg(resume),
     score = sqlc.arg(score),
+    current_node_id = sqlc.arg(current_node_id),
     finished_at = sqlc.narg(finished_at)
 WHERE id = sqlc.arg(id);
 
@@ -50,23 +52,31 @@ INSERT INTO messages (chat_id, sender_type, content)
 VALUES (sqlc.arg(chat_id), sqlc.arg(sender_type), sqlc.arg(content))
 RETURNING id, created_at;
 
--- name: ListIncidentsByChatID :many
-SELECT id, chat_id, type, comment, created_at
-FROM incidents
+-- name: ListDecisionsByChatID :many
+SELECT id, chat_id, node_id, transition_id, target_node_id, score_delta, feedback, created_at
+FROM chat_decisions
 WHERE chat_id = sqlc.arg(chat_id)
   AND (sqlc.arg(after_id)::bigint = 0 OR id < sqlc.arg(after_id)::bigint)
 ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
--- name: CreateIncident :one
-WITH new_incident AS (
-    INSERT INTO incidents (chat_id, type, comment)
-    VALUES (sqlc.arg(chat_id), sqlc.arg(type), sqlc.arg(comment))
+-- name: CreateDecision :one
+WITH new_decision AS (
+    INSERT INTO chat_decisions (chat_id, node_id, transition_id, target_node_id, score_delta, feedback)
+    VALUES (
+        sqlc.arg(chat_id),
+        sqlc.arg(node_id),
+        sqlc.arg(transition_id),
+        sqlc.arg(target_node_id),
+        sqlc.arg(score_delta),
+        sqlc.arg(feedback)
+    )
     RETURNING id, created_at
 ), updated_chat AS (
     UPDATE chats
-    SET score = sqlc.arg(score)
+    SET score = sqlc.arg(score),
+        current_node_id = sqlc.arg(target_node_id)
     WHERE id = sqlc.arg(chat_id)
 )
 SELECT id, created_at
-FROM new_incident;
+FROM new_decision;
