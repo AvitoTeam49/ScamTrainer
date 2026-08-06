@@ -62,7 +62,7 @@ func (r *InMemorySessionRepository) Create(
 		return ErrSessionAlreadyExists
 	}
 
-	cloneSession(session)
+	r.sessions[session.ID] = cloneSession(session)
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (r *InMemorySessionRepository) Update(
 		return ErrSessionNotFound
 	}
 
-	cloneSession(session)
+	r.sessions[session.ID] = cloneSession(session)
 	return nil
 }
 
