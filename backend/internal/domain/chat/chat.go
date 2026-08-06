@@ -1,0 +1,98 @@
+package chatdomain
+
+import (
+	"context"
+	"time"
+)
+
+const maxScore = 100
+
+type ChatStatus string
+
+const (
+	ChatStatusActive    ChatStatus = "active"
+	ChatStatusFinished  ChatStatus = "finished"
+	ChatStatusAbandoned ChatStatus = "abandoned"
+)
+
+func (s ChatStatus) Valid() bool {
+	switch s {
+	case ChatStatusActive, ChatStatusFinished, ChatStatusAbandoned:
+		return true
+	default:
+		return false
+	}
+}
+
+type Chat struct {
+	ID         int64
+	UserID     int64
+	ScenarioID int64
+	Title      string
+	Status     ChatStatus
+	Resume     string
+	Score      int64
+	CreatedAt  time.Time
+	FinishedAt *time.Time
+}
+
+func NewChat(userID, scenarioID int64, title string) *Chat {
+	return &Chat{
+		UserID:     userID,
+		ScenarioID: scenarioID,
+		Title:      title,
+		Status:     ChatStatusActive,
+		Score:      maxScore,
+		CreatedAt:  time.Now(),
+	}
+}
+
+func (c *Chat) IsActive() bool {
+	return c.Status == ChatStatusActive
+}
+
+func (c *Chat) ApplyIncident(incident *Incident) error {
+	if !c.IsActive() {
+		return ErrChatFinished
+	}
+
+	c.Score -= incident.Type.Weight()
+	if c.Score < 0 {
+		c.Score = 0
+	}
+
+	return nil
+}
+
+func (c *Chat) Finish(resume string) error {
+	if !c.IsActive() {
+		return ErrChatFinished
+	}
+
+	now := time.Now()
+	c.Status = ChatStatusFinished
+	c.Resume = resume
+	c.FinishedAt = &now
+
+	return nil
+}
+
+func (c *Chat) Abandon() error {
+	if !c.IsActive() {
+		return ErrChatFinished
+	}
+
+	now := time.Now()
+	c.Status = ChatStatusAbandoned
+	c.FinishedAt = &now
+
+	return nil
+}
+
+type ChatRepository interface {
+	GetByID(ctx context.Context, id int64) (*Chat, error)
+	ListByUserID(ctx context.Context, userID int64, cursor Cursor) ([]*Chat, error)
+	Create(ctx context.Context, chat *Chat) error
+	Update(ctx context.Context, chat *Chat) error
+	Delete(ctx context.Context, id int64) error
+}

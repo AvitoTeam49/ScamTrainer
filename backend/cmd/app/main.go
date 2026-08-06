@@ -11,17 +11,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AvitoTeam49/ScamTrainer/backend/internal/chat/agent/deepseek"
-	"github.com/AvitoTeam49/ScamTrainer/backend/internal/chat/domain"
-	chatpg "github.com/AvitoTeam49/ScamTrainer/backend/internal/chat/repository/postgres"
-	chatscenario "github.com/AvitoTeam49/ScamTrainer/backend/internal/chat/scenario"
-	"github.com/AvitoTeam49/ScamTrainer/backend/internal/chat/service"
-	"github.com/AvitoTeam49/ScamTrainer/backend/internal/chat/transport/rest"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent/deepseek"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/config"
-	"github.com/AvitoTeam49/ScamTrainer/backend/internal/scenario"
-	userscontroller "github.com/AvitoTeam49/ScamTrainer/backend/internal/users/controller"
-	userspg "github.com/AvitoTeam49/ScamTrainer/backend/internal/users/repository/postgres"
-	usersusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/users/usecase"
+	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
+	chatpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/chat"
+	userspostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/users"
+	scenariostatic "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/static/scenario"
+	scenarioyaml "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/yaml/scenario"
+	chatrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/chat"
+	usersrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/users"
+	chatusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/usecase/chat"
+	usersusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/usecase/users"
 	db "github.com/AvitoTeam49/ScamTrainer/backend/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -72,10 +72,10 @@ func run() error {
 
 	mux := http.NewServeMux()
 
-	chatService := service.New(
-		chatpg.NewChatRepository(pool),
-		chatpg.NewMessageRepository(pool),
-		chatpg.NewIncidentRepository(pool),
+	chatService := chatusecase.New(
+		chatpostgres.NewChatRepository(pool),
+		chatpostgres.NewMessageRepository(pool),
+		chatpostgres.NewIncidentRepository(pool),
 		scenarios,
 		deepseek.New(deepseek.Config{
 			BaseURL:    cfg.DeepSeek.BaseURL,
@@ -84,12 +84,12 @@ func run() error {
 			Timeout:    cfg.DeepSeek.Timeout,
 			MaxRetries: cfg.DeepSeek.MaxRetries,
 		}),
-		service.Options{},
+		chatusecase.Options{},
 	)
-	rest.NewHandler(chatService).Register(mux)
+	chatrest.NewHandler(chatService).Register(mux)
 
-	usersService := usersusecase.NewUserService(userspg.NewPostgresRepository(pool), logger)
-	userscontroller.New(usersService, logger).Register(mux)
+	usersService := usersusecase.NewUserService(userspostgres.NewPostgresRepository(pool), logger)
+	usersrest.New(usersService, logger).Register(mux)
 
 	server := &http.Server{
 		Addr:    cfg.HTTP.Addr,
@@ -119,22 +119,22 @@ func newLogger() (*zap.Logger, error) {
 	return logger, nil
 }
 
-// newScenarioProvider prefers the scenario graphs from internal/scenario, which
-// is the source of truth for scenario content. When SCENARIOS_DIR is not set the
-// chat domain keeps using its built-in static prompt.
+// newScenarioProvider prefers the scenario graphs, which are the source of truth
+// for scenario content. When SCENARIOS_DIR is not set the chat domain keeps
+// using its built-in static prompt.
 func newScenarioProvider(
 	cfg config.ScenariosConfig,
 	logger *zap.Logger,
-) (domain.ScenarioProvider, error) {
+) (chatdomain.ScenarioProvider, error) {
 	if !cfg.Enabled() {
 		logger.Info("scenario graphs disabled, falling back to the static prompt")
 
-		return chatscenario.NewStaticProvider(""), nil
+		return scenariostatic.NewStaticProvider(""), nil
 	}
 
 	// Graphs are parsed and validated here so that a broken YAML file stops the
 	// process before it starts accepting traffic.
-	graphs, err := scenario.NewYAMLRepository(cfg.Dir)
+	graphs, err := scenarioyaml.NewYAMLRepository(cfg.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load scenarios: %w", err)
 	}

@@ -1,13 +1,13 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "internal/chat/repository/postgres/queries.sql"
+    queries: "internal/repository/postgres/chat/queries.sql"
     schema: "migrations/migrations"
     gen:
       go:
-        package: "sqlc"
+        package: "chatsqlc"
         sql_package: "pgx/v5"
-        out: "internal/chat/repository/postgres/sqlc"
+        out: "internal/repository/postgres/chat/sqlc"
         emit_json_tags: true
         emit_interface: true
         omit_unused_structs: true
@@ -21,13 +21,13 @@ sql:
               pointer: true
 
   - engine: "postgresql"
-    queries: "internal/users/repository/postgres/queries.sql"
+    queries: "internal/repository/postgres/users/queries.sql"
     schema: "migrations/migrations"
     gen:
       go:
-        package: "postgres"
+        package: "userssqlc"
         sql_package: "pgx/v5"
-        out: "internal/users/repository/postgres/sqlc"
+        out: "internal/repository/postgres/users/sqlc"
         emit_json_tags: true
         emit_interface: true
         omit_unused_structs: true
