@@ -17,4 +17,4 @@ class Messages {
 
 }
 
-export default new Messages()
+export default Messages;

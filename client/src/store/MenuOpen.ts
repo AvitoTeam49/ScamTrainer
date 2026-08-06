@@ -1,6 +1,6 @@
 import { makeAutoObservable } from 'mobx';
 
-class menuOpen {
+class MenuOpen {
     menu = false
     constructor() {
         makeAutoObservable(this);
@@ -15,4 +15,4 @@ class menuOpen {
     }
 }
 
-export default new menuOpen();
+export default MenuOpen;

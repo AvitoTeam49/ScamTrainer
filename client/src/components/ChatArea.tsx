@@ -1,8 +1,9 @@
 import ChatHeader from "./ChatHeader.tsx";
 import MessageContainer from "./MessageContainer.tsx";
 import InputArea from "./InputArea.tsx";
+import type {FC} from "react";
 
-const ChatArea = () => {
+const ChatArea:FC = () => {
     return (
         <div className="chat-area">
             <ChatHeader/>

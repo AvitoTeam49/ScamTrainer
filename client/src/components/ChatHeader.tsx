@@ -1,8 +1,12 @@
 import {observer} from "mobx-react-lite";
-import menuOpen from "../store/MenuOpen.ts";
+import {type FC, useContext} from "react";
+import {Context} from "../main.tsx";
 
 
-const ChatHeader = observer(() => {
+const ChatHeader:FC = observer(() => {
+
+    const {menuOpen} = useContext(Context)
+
     return (
         <div className="chat-header">
             <button className="menu-toggle" onClick={menuOpen.setTrue}>☰</button>

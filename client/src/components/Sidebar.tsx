@@ -1,17 +1,19 @@
 import {observer} from "mobx-react-lite";
-import menuOpen from "../store/MenuOpen.ts";
-import Chat from "../store/Chat.ts";
 import type {IChat} from "../types/types.tsx";
 import {useNavigate} from "react-router-dom";
+import {useContext} from "react";
+import {Context} from "../main.tsx";
 
 
 interface SidebarProps {
     id?: string
 }
 
-const Sidebar = observer(({id}: SidebarProps) => {
+const Sidebar= observer(({id}: SidebarProps) => {
 
     const navigate = useNavigate()
+
+    const {menuOpen, chat} = useContext(Context)
 
     return (
         <div className={`sidebar ${menuOpen.menu ? 'open' : ''}`}>
@@ -32,9 +34,9 @@ const Sidebar = observer(({id}: SidebarProps) => {
             </button>
 
             <ul className="chat-list">
-                {Chat.chats.map((chat: IChat) => (
-                    <li key={chat.id}
-                        className={`chat-item ${String(chat.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${chat.id}`)}>Chat {chat.role} {chat.difficulty} {chat.id}</li>
+                {chat.chats.map((ch: IChat) => (
+                    <li key={ch.id}
+                        className={`chat-item ${String(ch.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${ch.id}`)}>Chat {ch.role} {ch.difficulty} {ch.id}</li>
                 ))}
             </ul>
         </div>

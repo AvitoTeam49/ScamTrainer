@@ -1,9 +1,11 @@
 import {observer} from "mobx-react-lite";
-import Messages from "../store/Messages.ts";
-import {useState, type KeyboardEvent} from "react";
+import {useState, type KeyboardEvent, type FC, useContext} from "react";
+import {Context} from "../main.tsx";
 
-const InputArea = observer(() => {
+const InputArea:FC = observer(() => {
     const [value, setValue] = useState<string>("")
+
+    const {messages} = useContext(Context)
 
     const handleSendMessage = () => {
         if(value.trim() === "") return
@@ -13,7 +15,7 @@ const InputArea = observer(() => {
             minute: '2-digit'
         });
 
-        Messages.addNewMessage({content: value, who: "own", time: time_now})
+        messages.addNewMessage({content: value, who: "own", time: time_now})
 
         setValue("")
     }

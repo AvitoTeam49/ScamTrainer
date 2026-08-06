@@ -1,6 +1,7 @@
-import {useState} from "react";
+import {type FC, useState} from "react";
+import {useNavigate} from "react-router-dom";
 
-const Auth = () => {
+const Auth:FC = () => {
 
     const [isPasswordLoginVisible, setIsPasswordLoginVisible] = useState<boolean>(false);
     const [isPasswordRegisterVisible, setIsPasswordRegisterVisible] = useState<boolean>(false);
@@ -8,11 +9,12 @@ const Auth = () => {
     const [loginPassword, setLoginPassword] = useState<string>("");
     const [registerEmail, setRegisterEmail] = useState<string>("");
     const [registerPassword, setRegisterPassword] = useState<string>("");
+    const navigate = useNavigate();
 
     return (
         <div className="main auth">
             <div className="header-logo">
-                <div className="logo-text">
+                <div className="logo-text" onClick={() => navigate("/auth")}>
                     <span className="logo-icon">
                         <span className="logo-dot dot-blue"></span>
                         <span className="logo-dot dot-red"></span>

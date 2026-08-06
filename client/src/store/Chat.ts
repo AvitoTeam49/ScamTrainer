@@ -14,4 +14,4 @@ class Chat {
 
 }
 
-export default new Chat();
+export default Chat;

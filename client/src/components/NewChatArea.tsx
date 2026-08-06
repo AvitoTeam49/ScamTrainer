@@ -1,15 +1,16 @@
-import {useState} from "react";
-import menuOpen from "../store/MenuOpen.ts";
+import {type FC, useContext, useState} from "react";
 import {observer} from "mobx-react-lite";
-import Chat from "../store/Chat.ts";
 import {useNavigate} from "react-router-dom";
+import {Context} from "../main.tsx";
 
 
-const NewChatArea = observer(() => {
+const NewChatArea:FC = observer(() => {
+
+    const {chat, menuOpen} = useContext(Context)
 
     const [selectedRole, setSelectedRole] = useState<string | null>(null)
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
-    let old_id = Chat.chats[Chat.chats.length - 1].id
+    let old_id = chat.chats.length > 0 ? chat.chats[chat.chats.length - 1].id : 1
     const navigate = useNavigate()
 
     return (
@@ -51,7 +52,7 @@ const NewChatArea = observer(() => {
             </div>
 
             <button className="create-btn" onClick={() => {
-                Chat.addNewChat({id: old_id + 1, role: selectedRole ? selectedRole : "buyer", difficulty: selectedDifficulty ? selectedDifficulty : "easy"})
+                chat.addNewChat({id: old_id + 1, role: selectedRole ? selectedRole : "buyer", difficulty: selectedDifficulty ? selectedDifficulty : "easy"})
                 navigate(`/chat/${old_id + 1}`)
             }}>Создать</button>
         </div>
