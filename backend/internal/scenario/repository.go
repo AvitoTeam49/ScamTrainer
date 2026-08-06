@@ -12,7 +12,7 @@ import (
 
 var ErrScenarioNotFound = errors.New("scenario not found")
 
-type Repository interface {
+type ScenarioRepository interface {
 	GetById(ctx context.Context, id string) (*Scenario, error)
 }
 
