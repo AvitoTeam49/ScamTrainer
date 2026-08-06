@@ -21,8 +21,8 @@ func NewHandler(chats ChatService) *Handler {
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /chats/{chatID}", h.getChat)
-	mux.HandleFunc("GET /chats/{chatID}/messages", h.listMessages)
+	mux.HandleFunc("GET /v1/chats/{chatID}", h.getChat)
+	mux.HandleFunc("GET /v1/chats/{chatID}/messages", h.listMessages)
 }
 
 func (h *Handler) getChat(w http.ResponseWriter, r *http.Request) {
