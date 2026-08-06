@@ -62,7 +62,7 @@ func TestNewYAMLRepository_LoadsScenario(t *testing.T) {
 	}
 }
 
-func TestYAMLRepository_GetByID_NotFound(t *testing.T) {
+func TestYAMLRepository_GetById_NotFound(t *testing.T) {
 	directory := t.TempDir()
 
 	repository, err := NewYAMLRepository(directory)
