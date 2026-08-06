@@ -1,17 +1,23 @@
 package usersrest
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"go.uber.org/zap"
 )
 
+const (
+	defaultLeaderboardLimit = 10
+	maxLeaderboardLimit     = 100
+)
+
 func (h *UserHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	query := r.URL.Query()
 
-	limit := 10
+	limit := defaultLeaderboardLimit
 	if limitStr := query.Get("limit"); limitStr != "" {
 		parsedLimit, err := strconv.Atoi(limitStr)
 		if err != nil {
@@ -24,8 +30,10 @@ func (h *UserHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			h.respondError(w, http.StatusBadRequest, "limit must be greater than 0")
 			return
 		}
-		if parsedLimit > 100 {
-			parsedLimit = 100
+		if parsedLimit > maxLeaderboardLimit {
+			h.logger.Warn("get leaderboard failed: limit is too large", zap.Int("limit", parsedLimit))
+			h.respondError(w, http.StatusBadRequest, fmt.Sprintf("limit must not exceed %d", maxLeaderboardLimit))
+			return
 		}
 		limit = parsedLimit
 	}
