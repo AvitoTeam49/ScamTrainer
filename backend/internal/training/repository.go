@@ -19,7 +19,7 @@ type SessionRepository interface {
 		session *scenario.TrainingSession,
 	) error
 
-	GetByID(
+	GetById(
 		ctx context.Context,
 		sessionID string,
 	) (*scenario.TrainingSession, error)
@@ -39,6 +39,8 @@ type InMemorySessionRepository struct {
 	sessions map[string]scenario.TrainingSession
 }
 
+var _ SessionRepository = (*InMemorySessionRepository)(nil)
+
 func NewInMemorySessionRepository() *InMemorySessionRepository {
 	return &InMemorySessionRepository{
 		sessions: make(map[string]scenario.TrainingSession),
@@ -48,6 +50,11 @@ func NewInMemorySessionRepository() *InMemorySessionRepository {
 func (r *InMemorySessionRepository) Create(
 	ctx context.Context, session *scenario.TrainingSession,
 ) error {
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -55,27 +62,38 @@ func (r *InMemorySessionRepository) Create(
 		return ErrSessionAlreadyExists
 	}
 
-	r.sessions[session.ID] = *session
+	cloneSession(session)
 	return nil
 }
 
-func (r *InMemorySessionRepository) GetByID(
+func (r *InMemorySessionRepository) GetById(
 	ctx context.Context, sessionID string,
 ) (*scenario.TrainingSession, error) {
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	session, exists := r.sessions[sessionID]
+	stored, exists := r.sessions[sessionID]
 	if !exists {
 		return nil, ErrSessionNotFound
 	}
 
-	return &session, nil
+	cloned := cloneSession(&stored)
+
+	return &cloned, nil
 }
 
 func (r *InMemorySessionRepository) Update(
 	ctx context.Context, session *scenario.TrainingSession,
 ) error {
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -83,6 +101,19 @@ func (r *InMemorySessionRepository) Update(
 		return ErrSessionNotFound
 	}
 
-	r.sessions[session.ID] = *session
+	cloneSession(session)
 	return nil
+}
+
+func cloneSession(
+	session *scenario.TrainingSession,
+) scenario.TrainingSession {
+	cloned := *session
+
+	if session.CompletedAt != nil {
+		completedAt := *session.CompletedAt
+		cloned.CompletedAt = &completedAt
+	}
+
+	return cloned
 }
