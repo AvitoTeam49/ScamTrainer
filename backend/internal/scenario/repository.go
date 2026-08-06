@@ -13,7 +13,7 @@ import (
 var ErrScenarioNotFound = errors.New("scenario not found")
 
 type Repository interface {
-	GetById(ctx context.Context, id string) (*Scenario, error)
+	GetByID(ctx context.Context, id string) (*Scenario, error)
 }
 
 type YAMLRepository struct {
@@ -92,7 +92,7 @@ func loadScenario(path string) (*Scenario, error) {
 	return &loaded, nil
 }
 
-func (r *YAMLRepository) GetById(
+func (r *YAMLRepository) GetByID(
 	_ context.Context,
 	scenarioID string,
 ) (*Scenario, error) {

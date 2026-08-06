@@ -22,7 +22,7 @@ func Validate(scenario *Scenario) error {
 	}
 
 	if err := validateDAG(scenario); err != nil {
-		return fmt.Errorf("validate graph: %q", err)
+		return fmt.Errorf("validate graph: %w", err)
 	}
 
 	return nil

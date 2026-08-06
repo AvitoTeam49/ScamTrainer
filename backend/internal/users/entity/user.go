@@ -35,5 +35,5 @@ type LeaderboardEntry struct {
 
 type Leaderboard struct {
 	TopUsers   []LeaderboardEntry `json:"top_users"`
-	TotalUsers int                `json:"user_rank"`
+	TotalUsers int                `json:"total_users"`
 }

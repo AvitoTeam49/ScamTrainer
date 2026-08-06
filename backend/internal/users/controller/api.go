@@ -26,9 +26,9 @@ func New(userService users.UsersService, logger *zap.Logger) *API {
 	}
 }
 
-func Register(mux *http.ServeMux, h UserHandler) {
-	mux.HandleFunc("POST /api/v1/users", h.CreateUser)
-	mux.HandleFunc("GET /api/v1/users/me", h.GetUser)
-	mux.HandleFunc("GET /api/v1/users/me/progress", h.GetUserProgress)
-	mux.HandleFunc("GET /api/v1/users/leaderboard", h.GetLeaderboard)
+func (a *API) Register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/users", a.userServer.CreateUser)
+	mux.HandleFunc("GET /v1/users/me", a.userServer.GetUser)
+	mux.HandleFunc("GET /v1/users/me/progress", a.userServer.GetUserProgress)
+	mux.HandleFunc("GET /v1/users/leaderboard", a.userServer.GetLeaderboard)
 }

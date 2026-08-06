@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -41,10 +42,29 @@ type PostgresConfig struct {
 	DSN string
 }
 
+// ScenariosConfig wires the YAML scenario graphs into the chat domain.
+//
+// Chat stores scenario_id as bigint, while the scenario graphs are keyed by
+// string ids taken from their YAML files. The mapping is declared explicitly
+// instead of being derived from the directory listing: chats.scenario_id is
+// already persisted, so an id that shifts when a YAML file is added would
+// silently repoint existing chats at a different scenario.
+type ScenariosConfig struct {
+	Dir string
+	Map map[int64]string
+}
+
+// Enabled reports whether YAML-backed scenarios should replace the static
+// prompt provider.
+func (c ScenariosConfig) Enabled() bool {
+	return c.Dir != ""
+}
+
 type Config struct {
-	HTTP     HTTPConfig
-	Postgres PostgresConfig
-	DeepSeek DeepSeekConfig
+	HTTP      HTTPConfig
+	Postgres  PostgresConfig
+	DeepSeek  DeepSeekConfig
+	Scenarios ScenariosConfig
 }
 
 func Load() (*Config, error) {
@@ -63,10 +83,16 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	scenarios, err := loadScenarios()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		HTTP:     httpConfig,
-		Postgres: postgres,
-		DeepSeek: deepSeek,
+		HTTP:      httpConfig,
+		Postgres:  postgres,
+		DeepSeek:  deepSeek,
+		Scenarios: scenarios,
 	}, nil
 }
 
@@ -119,6 +145,69 @@ func loadDeepSeek() (DeepSeekConfig, error) {
 		Timeout:    timeout,
 		MaxRetries: maxRetries,
 	}, nil
+}
+
+func loadScenarios() (ScenariosConfig, error) {
+	dir := os.Getenv("SCENARIOS_DIR")
+	raw := os.Getenv("SCENARIOS_MAP")
+
+	if dir == "" {
+		if raw != "" {
+			return ScenariosConfig{}, fmt.Errorf(
+				"%w: SCENARIOS_MAP is set but SCENARIOS_DIR is empty", ErrInvalidEnv)
+		}
+
+		return ScenariosConfig{}, nil
+	}
+
+	mapping, err := parseScenarioMap(raw)
+	if err != nil {
+		return ScenariosConfig{}, err
+	}
+
+	return ScenariosConfig{Dir: dir, Map: mapping}, nil
+}
+
+// parseScenarioMap reads pairs like "1:seller_fake_delivery,2:buyer_prepay".
+func parseScenarioMap(raw string) (map[int64]string, error) {
+	mapping := make(map[int64]string)
+
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+
+		id, scenarioID, found := strings.Cut(pair, ":")
+		if !found {
+			return nil, fmt.Errorf(
+				"%w: SCENARIOS_MAP entry %q must look like <id>:<scenario_id>", ErrInvalidEnv, pair)
+		}
+
+		parsed, err := strconv.ParseInt(strings.TrimSpace(id), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%w: SCENARIOS_MAP entry %q: %v", ErrInvalidEnv, pair, err)
+		}
+
+		if parsed <= 0 {
+			return nil, fmt.Errorf(
+				"%w: SCENARIOS_MAP entry %q must use a positive id", ErrInvalidEnv, pair)
+		}
+
+		scenarioID = strings.TrimSpace(scenarioID)
+		if scenarioID == "" {
+			return nil, fmt.Errorf(
+				"%w: SCENARIOS_MAP entry %q has an empty scenario id", ErrInvalidEnv, pair)
+		}
+
+		if _, exists := mapping[parsed]; exists {
+			return nil, fmt.Errorf("%w: SCENARIOS_MAP contains duplicate id %d", ErrInvalidEnv, parsed)
+		}
+
+		mapping[parsed] = scenarioID
+	}
+
+	return mapping, nil
 }
 
 func stringEnv(name, fallback string) string {
