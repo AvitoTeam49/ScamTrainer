@@ -7,12 +7,12 @@ const (
 	RoleSeller Role = "seller"
 )
 
-type Difficulty string
+type Difficulty int
 
 const (
-	DifficultyEasy   Difficulty = "easy"
-	DifficultyMedium Difficulty = "medium"
-	DifficultyHard   Difficulty = "hard"
+	DifficultyEasy = iota
+	DifficultyMedium
+	DifficultyHard
 )
 
 type NodeType string
@@ -23,7 +23,7 @@ const (
 )
 
 type Scenario struct {
-	ID          string           `yaml:"id"`
+	ID          int              `yaml:"id"`
 	Title       string           `yaml:"title"`
 	Role        Role             `yaml:"role"`
 	Difficulty  Difficulty       `yaml:"difficulty"`

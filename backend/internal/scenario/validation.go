@@ -30,8 +30,8 @@ func Validate(scenario *Scenario) error {
 
 func validateFields(scenario *Scenario) error {
 
-	if scenario.ID == "" {
-		return errors.New("scenario id is empty")
+	if scenario.ID <= 0 {
+		return errors.New("scenario id must be positive")
 	}
 
 	if scenario.Title == "" {
@@ -48,7 +48,7 @@ func validateFields(scenario *Scenario) error {
 		DifficultyHard:
 	default:
 		return fmt.Errorf(
-			"scenario %q has invalid difficulty %q",
+			"scenario %d has invalid difficulty %d",
 			scenario.ID,
 			scenario.Difficulty,
 		)

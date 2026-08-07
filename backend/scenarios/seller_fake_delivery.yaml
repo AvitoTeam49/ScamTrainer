@@ -1,4 +1,4 @@
-id: seller_fake_delivery
+id: 1
 title: Поддельная ссылка на доставку
 role: seller
 start_node_id: initial_offer

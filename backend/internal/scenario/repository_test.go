@@ -17,7 +17,7 @@ func TestNewYAMLRepository_LoadsScenario(t *testing.T) {
 		t,
 		directory,
 		"seller.yaml",
-		validScenarioYAML("seller_fake_delivery"),
+		validScenarioYAML(1),
 	)
 
 	repository, err := NewYAMLRepository(directory)
@@ -27,22 +27,22 @@ func TestNewYAMLRepository_LoadsScenario(t *testing.T) {
 
 	loaded, err := repository.GetById(
 		context.Background(),
-		"seller_fake_delivery",
+		1,
 	)
 	if err != nil {
 		t.Fatalf("get scenario: %v", err)
 	}
 
-	if loaded.ID != "seller_fake_delivery" {
+	if loaded.ID != 1 {
 		t.Fatalf(
-			"unexpected scenario id: got %q",
+			"unexpected scenario id: got %d",
 			loaded.ID,
 		)
 	}
 
 	if loaded.Difficulty != DifficultyEasy {
 		t.Fatalf(
-			"unexpected difficulty: got %q",
+			"unexpected difficulty: got %d",
 			loaded.Difficulty,
 		)
 	}
@@ -59,8 +59,6 @@ func TestNewYAMLRepository_LoadsScenario(t *testing.T) {
 		t.Fatal("start node is nil")
 	}
 
-	// В YAML поле ID внутри ноды отсутствует.
-	// Его должен заполнить loadScenario из ключа map.
 	if startNode.ID != "start" {
 		t.Fatalf(
 			"unexpected node id: got %q",
@@ -79,7 +77,7 @@ func TestYAMLRepository_GetById_NotFound(t *testing.T) {
 
 	_, err = repository.GetById(
 		context.Background(),
-		"missing_scenario",
+		100,
 	)
 	if err == nil {
 		t.Fatal("expected scenario not found error")
@@ -100,14 +98,14 @@ func TestNewYAMLRepository_DuplicateScenarioID(t *testing.T) {
 		t,
 		directory,
 		"first.yaml",
-		validScenarioYAML("duplicate_id"),
+		validScenarioYAML(1),
 	)
 
 	writeScenarioFile(
 		t,
 		directory,
 		"second.yaml",
-		validScenarioYAML("duplicate_id"),
+		validScenarioYAML(1),
 	)
 
 	_, err := NewYAMLRepository(directory)
@@ -131,7 +129,7 @@ func TestNewYAMLRepository_MalformedYAML(t *testing.T) {
 		directory,
 		"broken.yaml",
 		`
-id: broken
+id: 3
 title: Broken
 nodes:
   start:
@@ -153,10 +151,10 @@ func TestNewYAMLRepository_InvalidScenario(t *testing.T) {
 		directory,
 		"invalid.yaml",
 		`
-id: invalid_scenario
+id: 2
 title: Invalid scenario
 role: seller
-difficulty: easy
+difficulty: 0
 start_node_id: start
 
 nodes:
@@ -218,12 +216,12 @@ func writeScenarioFile(
 	}
 }
 
-func validScenarioYAML(id string) string {
+func validScenarioYAML(id int) string {
 	return fmt.Sprintf(`
-id: %s
+id: %d
 title: Test scenario
 role: seller
-difficulty: easy
+difficulty: 0
 start_node_id: start
 
 llm:

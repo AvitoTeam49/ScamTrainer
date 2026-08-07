@@ -41,8 +41,8 @@ type TurnResult struct {
 
 func (s *TrainingService) Start(
 	ctx context.Context,
-	userID string,
-	scenarioID string,
+	userID int64,
+	scenarioID int,
 ) (*StartResult, error) {
 	trainingScenario, err := s.scenarios.GetById(
 		ctx,
@@ -50,7 +50,7 @@ func (s *TrainingService) Start(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"get scenario %q: %w",
+			"get scenario %d: %w",
 			scenarioID,
 			err,
 		)
@@ -59,7 +59,7 @@ func (s *TrainingService) Start(
 	startNode, exists := trainingScenario.Nodes[trainingScenario.StartNodeID]
 	if !exists {
 		return nil, fmt.Errorf(
-			"start node %q not found in scenario %q",
+			"start node %q not found in scenario %d",
 			trainingScenario.StartNodeID,
 			trainingScenario.ID,
 		)
@@ -107,7 +107,7 @@ func (s *TrainingService) ApplyChoice(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"get scenario %q: %w",
+			"get scenario %d: %w",
 			session.ScenarioID,
 			err,
 		)

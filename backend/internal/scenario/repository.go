@@ -13,7 +13,7 @@ import (
 var ErrScenarioNotFound = errors.New("scenario not found")
 
 type ScenarioRepository interface {
-	GetById(ctx context.Context, id string) (*Scenario, error)
+	GetById(ctx context.Context, id int) (*Scenario, error)
 }
 
 type ScenarioCatalog interface {
@@ -23,11 +23,11 @@ type ScenarioCatalog interface {
 }
 
 type YAMLRepository struct {
-	scenarios map[string]*Scenario
+	scenarios map[int]*Scenario
 }
 
 type ScenarioInfo struct {
-	ID         string
+	ID         int
 	Title      string
 	Role       Role
 	Difficulty Difficulty
@@ -40,7 +40,7 @@ func NewYAMLRepository(directory string) (*YAMLRepository, error) {
 	}
 
 	repository := &YAMLRepository{
-		scenarios: make(map[string]*Scenario)}
+		scenarios: make(map[int]*Scenario)}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -63,7 +63,7 @@ func NewYAMLRepository(directory string) (*YAMLRepository, error) {
 
 		if exists {
 			return nil, fmt.Errorf(
-				"duplicate scenario id %q",
+				"duplicate scenario id %d",
 				loaded.ID,
 			)
 		}
@@ -89,7 +89,7 @@ func loadScenario(path string) (*Scenario, error) {
 	for nodeID, node := range loaded.Nodes {
 		if node == nil {
 			return nil, fmt.Errorf(
-				"scenario %q contains empty node %q",
+				"scenario %d contains empty node %q",
 				loaded.ID,
 				nodeID,
 			)
@@ -107,12 +107,12 @@ func loadScenario(path string) (*Scenario, error) {
 
 func (r *YAMLRepository) GetById(
 	_ context.Context,
-	scenarioID string,
+	scenarioID int,
 ) (*Scenario, error) {
 	found, exists := r.scenarios[scenarioID]
 	if !exists {
 		return nil, fmt.Errorf(
-			"%w: %s",
+			"%w: %d",
 			ErrScenarioNotFound,
 			scenarioID,
 		)
