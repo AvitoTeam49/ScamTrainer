@@ -19,13 +19,17 @@ func Auth(authService auth.AuthService) func(http.Handler) http.Handler {
 
 			tokenStr, found := strings.CutPrefix(authHeader, "Bearer ")
 			if !found || tokenStr == "" {
-				http.Error(w, `{"error":"missing or invalid authorization header"}`, http.StatusUnauthorized)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"missing or invalid authorization header"}`))
 				return
 			}
 
-			isValid, userID, _, err := authService.ValidateToken(r.Context(), tokenStr)
+			isValid, userID, err := authService.ValidateToken(r.Context(), tokenStr)
 			if err != nil || !isValid {
-				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"invalid or expired token"}`))
 				return
 			}
 

@@ -15,13 +15,12 @@ import (
 )
 
 type CustomClaims struct {
-	UserID int64  `json:"user_id"`
-	Role   string `json:"role"`
+	UserID int64 `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
 type authRepository interface {
-	CreateUser(ctx context.Context, email string, passwordHash string, role string) (user entity.User, err error)
+	CreateUser(ctx context.Context, email string, passwordHash string) (user entity.User, err error)
 	GetUserByEmail(ctx context.Context, email string) (user entity.User, err error)
 }
 
@@ -57,7 +56,7 @@ func (s *authService) Register(ctx context.Context, email, password string) (int
 		return 0, "", fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := s.authRepository.CreateUser(ctx, email, string(hashedPassword), entity.RoleDefault)
+	user, err := s.authRepository.CreateUser(ctx, email, string(hashedPassword))
 	if err != nil {
 		return 0, "", fmt.Errorf("create user in repo: %w", err)
 	}
@@ -86,12 +85,12 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 		return "", "", fmt.Errorf("compare password hash: %w", err)
 	}
 
-	accessToken, err := s.generateToken(user.ID, user.Role, 15*time.Minute)
+	accessToken, err := s.generateToken(user.ID, 15*time.Minute)
 	if err != nil {
 		return "", "", fmt.Errorf("generate access token: %w", err)
 	}
 
-	refreshToken, err := s.generateToken(user.ID, user.Role, 7*24*time.Hour)
+	refreshToken, err := s.generateToken(user.ID, 7*24*time.Hour)
 	if err != nil {
 		return "", "", fmt.Errorf("generate refresh token: %w", err)
 	}
@@ -100,7 +99,7 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 
 }
 
-func (s *authService) ValidateToken(ctx context.Context, tokenString string) (bool, int64, string, error) {
+func (s *authService) ValidateToken(ctx context.Context, tokenString string) (bool, int64, error) {
 	claims := &CustomClaims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
@@ -111,10 +110,10 @@ func (s *authService) ValidateToken(ctx context.Context, tokenString string) (bo
 	})
 
 	if err != nil || !token.Valid {
-		return false, 0, "", entity.ErrInvalidToken
+		return false, 0, entity.ErrInvalidToken
 	}
 
-	return true, claims.UserID, claims.Role, nil
+	return true, claims.UserID, nil
 }
 
 func (s *authService) RefreshToken(ctx context.Context, refreshTokenString string) (string, string, error) {
@@ -131,12 +130,12 @@ func (s *authService) RefreshToken(ctx context.Context, refreshTokenString strin
 		return "", "", entity.ErrInvalidToken
 	}
 
-	newAccessToken, err := s.generateToken(claims.UserID, claims.Role, 15*time.Minute)
+	newAccessToken, err := s.generateToken(claims.UserID, 15*time.Minute)
 	if err != nil {
 		return "", "", fmt.Errorf("generate access token: %w", err)
 	}
 
-	newRefreshToken, err := s.generateToken(claims.UserID, claims.Role, 7*24*time.Hour)
+	newRefreshToken, err := s.generateToken(claims.UserID, 7*24*time.Hour)
 	if err != nil {
 		return "", "", fmt.Errorf("generate refresh token: %w", err)
 	}
@@ -160,10 +159,9 @@ func validateRegisterInput(email, password string) error {
 	return nil
 }
 
-func (s *authService) generateToken(userID int64, role string, ttl time.Duration) (string, error) {
+func (s *authService) generateToken(userID int64, ttl time.Duration) (string, error) {
 	claims := CustomClaims{
 		UserID: userID,
-		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

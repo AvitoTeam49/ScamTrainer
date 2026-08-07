@@ -43,16 +43,14 @@ func (r *postgresRepository) GetUserByEmail(ctx context.Context, email string) (
 		ID:           userDb.ID,
 		Email:        userDb.Email,
 		PasswordHash: userDb.PasswordHash,
-		Role:         userDb.Role,
 		CreatedAt:    userDb.CreatedAt.Time,
 	}, nil
 }
 
-func (r *postgresRepository) CreateUser(ctx context.Context, email string, passwordHash string, role string) (entity.User, error) {
+func (r *postgresRepository) CreateUser(ctx context.Context, email string, passwordHash string) (entity.User, error) {
 	userDb, err := r.queries.CreateUser(ctx, sqlcAuth.CreateUserParams{
 		Email:        email,
 		PasswordHash: passwordHash,
-		Role:         role,
 	})
 
 	if err != nil {
@@ -63,7 +61,6 @@ func (r *postgresRepository) CreateUser(ctx context.Context, email string, passw
 		ID:           userDb.ID,
 		Email:        userDb.Email,
 		PasswordHash: userDb.PasswordHash,
-		Role:         userDb.Role,
 		CreatedAt:    userDb.CreatedAt.Time,
 	}, nil
 }

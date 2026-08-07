@@ -12,7 +12,7 @@ type AuthService interface {
 	Register(ctx context.Context, email, password string) (userID int64, message string, err error)
 	Login(ctx context.Context, email, password string) (accessToken, refreshToken string, err error)
 	RefreshToken(ctx context.Context, refreshToken string) (newAccessToken, newRefreshToken string, err error)
-	ValidateToken(ctx context.Context, token string) (isValid bool, userID int64, role string, err error)
+	ValidateToken(ctx context.Context, token string) (isValid bool, userID int64, err error)
 }
 
 type authHandler struct {

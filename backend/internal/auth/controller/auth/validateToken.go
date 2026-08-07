@@ -15,9 +15,8 @@ type ValidateTokenRequest struct {
 }
 
 type ValidateTokenResponse struct {
-	IsValid bool   `json:"is_valid"`
-	UserID  int64  `json:"user_id"`
-	Role    string `json:"role"`
+	IsValid bool  `json:"is_valid"`
+	UserID  int64 `json:"user_id"`
 }
 
 func (a *authHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +41,7 @@ func (a *authHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isValid, userID, role, err := a.authService.ValidateToken(r.Context(), token)
+	isValid, userID, err := a.authService.ValidateToken(r.Context(), token)
 	if err != nil {
 		switch {
 		case errors.Is(err, entity.ErrInvalidToken):
@@ -61,6 +60,5 @@ func (a *authHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	a.respondJSON(w, http.StatusOK, ValidateTokenResponse{
 		IsValid: isValid,
 		UserID:  userID,
-		Role:    role,
 	})
 }
