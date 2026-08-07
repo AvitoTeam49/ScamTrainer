@@ -1,6 +1,8 @@
 package scenario
 
-import "time"
+import (
+	"time"
+)
 
 type SessionStatus string
 

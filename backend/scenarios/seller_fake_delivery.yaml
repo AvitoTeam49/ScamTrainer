@@ -2,6 +2,7 @@ id: seller_fake_delivery
 title: Поддельная ссылка на доставку
 role: seller
 start_node_id: initial_offer
+difficulty: easy
 
 llm:
   character_prompt: |

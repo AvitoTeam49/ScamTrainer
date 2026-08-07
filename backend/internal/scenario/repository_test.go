@@ -40,6 +40,13 @@ func TestNewYAMLRepository_LoadsScenario(t *testing.T) {
 		)
 	}
 
+	if loaded.Difficulty != DifficultyEasy {
+		t.Fatalf(
+			"unexpected difficulty: got %q",
+			loaded.Difficulty,
+		)
+	}
+
 	if loaded.StartNodeID != "start" {
 		t.Fatalf(
 			"unexpected start node id: got %q",
@@ -149,6 +156,7 @@ func TestNewYAMLRepository_InvalidScenario(t *testing.T) {
 id: invalid_scenario
 title: Invalid scenario
 role: seller
+difficulty: easy
 start_node_id: start
 
 nodes:
@@ -215,6 +223,7 @@ func validScenarioYAML(id string) string {
 id: %s
 title: Test scenario
 role: seller
+difficulty: easy
 start_node_id: start
 
 llm:
