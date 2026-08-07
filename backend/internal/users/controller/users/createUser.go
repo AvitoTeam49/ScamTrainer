@@ -47,6 +47,5 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info("user successfully created", zap.Int64("id", user.ID), zap.String("username", user.Username))
 	h.respondJSON(w, http.StatusCreated, user)
 }
