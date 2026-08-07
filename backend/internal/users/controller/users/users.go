@@ -10,7 +10,7 @@ import (
 )
 
 type UsersService interface {
-	CreateUser(ctx context.Context, username string) (*entity.User, error)
+	CreateUser(ctx context.Context, user_id int64, username string) (*entity.User, error)
 
 	GetUserByID(ctx context.Context, userID int64) (*entity.User, error)
 

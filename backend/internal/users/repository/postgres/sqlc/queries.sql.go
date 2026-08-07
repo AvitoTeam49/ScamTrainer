@@ -25,8 +25,11 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 
 const createUser = `-- name: CreateUser :one
 WITH new_user AS (
-    INSERT INTO users_schema.users (username)
-    VALUES ($1)
+    INSERT INTO users_schema.users (id, username)
+    VALUES (
+        $1, 
+        $2
+    )
     RETURNING id, username, score, created_at, updated_at
 ),
 new_progress AS (
@@ -37,6 +40,11 @@ SELECT id, username, score, created_at, updated_at
 FROM new_user
 `
 
+type CreateUserParams struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
 type CreateUserRow struct {
 	ID        int64              `json:"id"`
 	Username  string             `json:"username"`
@@ -45,8 +53,8 @@ type CreateUserRow struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, username string) (CreateUserRow, error) {
-	row := q.db.QueryRow(ctx, createUser, username)
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.ID, arg.Username)
 	var i CreateUserRow
 	err := row.Scan(
 		&i.ID,

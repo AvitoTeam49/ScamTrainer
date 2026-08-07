@@ -10,7 +10,7 @@ import (
 
 type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
-	CreateUser(ctx context.Context, username string) (CreateUserRow, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	GetLeaderboard(ctx context.Context, arg GetLeaderboardParams) ([]GetLeaderboardRow, error)
 	GetUserByID(ctx context.Context, id int64) (UsersSchemaUser, error)
 	GetUserProgress(ctx context.Context, userID int64) (UsersSchemaUserProgress, error)

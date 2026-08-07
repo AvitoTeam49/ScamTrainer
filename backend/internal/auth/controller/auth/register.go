@@ -20,14 +20,9 @@ type RegisterResponse struct {
 }
 
 func (a *authHandler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		a.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -35,32 +30,26 @@ func (a *authHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, entity.ErrUserAlreadyExists):
-			http.Error(w, "user already exists", http.StatusConflict)
+			a.respondError(w, http.StatusConflict, "user already exists")
 			return
 		case errors.Is(err, entity.ErrInvalidPassword):
-			http.Error(w, "password is too short or invalid", http.StatusBadRequest)
+			a.respondError(w, http.StatusBadRequest, "password is too short or invalid")
 			return
 		case errors.Is(err, entity.ErrInvalidEmail):
-			http.Error(w, "invalid email format", http.StatusBadRequest)
+			a.respondError(w, http.StatusBadRequest, "invalid email format")
 			return
 		default:
 			a.logger.Error(
 				"failed to register user",
 				zap.Error(err),
 			)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			a.respondError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err = json.NewEncoder(w).Encode(RegisterResponse{
+	a.respondJSON(w, http.StatusCreated, RegisterResponse{
 		UserID:  userID,
 		Message: message,
-	}); err != nil {
-		a.logger.Error("failed to encode response json",
-			zap.Error(err),
-		)
-	}
+	})
 }

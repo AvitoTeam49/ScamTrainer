@@ -21,11 +21,6 @@ type ValidateTokenResponse struct {
 }
 
 func (a *authHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var token string
 
 	authHeader := r.Header.Get("Authorization")
@@ -36,14 +31,14 @@ func (a *authHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	if token == "" && r.Body != nil {
 		var req ValidateTokenRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request payload", http.StatusBadRequest)
+			a.respondError(w, http.StatusBadRequest, "invalid request payload")
 			return
 		}
 		token = req.Token
 	}
 
 	if token == "" {
-		http.Error(w, "token is required", http.StatusBadRequest)
+		a.respondError(w, http.StatusBadRequest, "token is required")
 		return
 	}
 
@@ -51,27 +46,21 @@ func (a *authHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, entity.ErrInvalidToken):
-			http.Error(w, "invalid or expired token", http.StatusUnauthorized)
+			a.respondError(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		default:
 			a.logger.Error(
 				"failed to validate token",
 				zap.Error(err),
 			)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			a.respondError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err = json.NewEncoder(w).Encode(ValidateTokenResponse{
+	a.respondJSON(w, http.StatusOK, ValidateTokenResponse{
 		IsValid: isValid,
 		UserID:  userID,
 		Role:    role,
-	}); err != nil {
-		a.logger.Error("failed to encode response json",
-			zap.Error(err),
-		)
-	}
+	})
 }

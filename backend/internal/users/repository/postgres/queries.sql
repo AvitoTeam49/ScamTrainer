@@ -1,7 +1,10 @@
 -- name: CreateUser :one
 WITH new_user AS (
-    INSERT INTO users_schema.users (username)
-    VALUES (sqlc.arg(username))
+    INSERT INTO users_schema.users (id, username)
+    VALUES (
+        sqlc.arg(id), 
+        sqlc.arg(username)
+    )
     RETURNING id, username, score, created_at, updated_at
 ),
 new_progress AS (

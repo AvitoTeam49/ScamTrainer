@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/entity"
 	sqlcAuth "github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/repository/sqlc"
@@ -32,6 +33,9 @@ func NewPostgresRepository(db DB) *postgresRepository {
 func (r *postgresRepository) GetUserByEmail(ctx context.Context, email string) (entity.User, error) {
 	userDb, err := r.queries.GetUserByEmail(ctx, email)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.User{}, entity.ErrUserNotFound
+		}
 		return entity.User{}, err
 	}
 

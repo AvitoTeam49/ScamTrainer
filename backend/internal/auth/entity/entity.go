@@ -21,3 +21,5 @@ type User struct {
 	Role         string    `db:"role"`
 	CreatedAt    time.Time `db:"created_at"`
 }
+
+const RoleDefault = "user"

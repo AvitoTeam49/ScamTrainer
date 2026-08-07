@@ -57,7 +57,7 @@ func (s *authService) Register(ctx context.Context, email, password string) (int
 		return 0, "", fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := s.authRepository.CreateUser(ctx, email, string(hashedPassword), "")
+	user, err := s.authRepository.CreateUser(ctx, email, string(hashedPassword), entity.RoleDefault)
 	if err != nil {
 		return 0, "", fmt.Errorf("create user in repo: %w", err)
 	}
@@ -115,6 +115,33 @@ func (s *authService) ValidateToken(ctx context.Context, tokenString string) (bo
 	}
 
 	return true, claims.UserID, claims.Role, nil
+}
+
+func (s *authService) RefreshToken(ctx context.Context, refreshTokenString string) (string, string, error) {
+	claims := &CustomClaims{}
+
+	token, err := jwt.ParseWithClaims(refreshTokenString, claims, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.jwtSecret, nil
+	})
+
+	if err != nil || !token.Valid {
+		return "", "", entity.ErrInvalidToken
+	}
+
+	newAccessToken, err := s.generateToken(claims.UserID, claims.Role, 15*time.Minute)
+	if err != nil {
+		return "", "", fmt.Errorf("generate access token: %w", err)
+	}
+
+	newRefreshToken, err := s.generateToken(claims.UserID, claims.Role, 7*24*time.Hour)
+	if err != nil {
+		return "", "", fmt.Errorf("generate refresh token: %w", err)
+	}
+
+	return newAccessToken, newRefreshToken, nil
 }
 
 func validateRegisterInput(email, password string) error {

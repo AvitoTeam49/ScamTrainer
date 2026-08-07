@@ -20,19 +20,14 @@ type LoginResponse struct {
 }
 
 func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		a.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.Email == "" || req.Password == "" {
-		http.Error(w, "email and password are required", http.StatusBadRequest)
+		a.respondError(w, http.StatusBadRequest, "email and password are required")
 		return
 	}
 
@@ -40,26 +35,17 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, entity.ErrInvalidCredentials):
-			http.Error(w, "invalid email or password", http.StatusUnauthorized)
+			a.respondError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		default:
-			a.logger.Error(
-				"failed to login user",
-				zap.Error(err),
-			)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			a.logger.Error("failed to login user", zap.Error(err))
+			a.respondError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err = json.NewEncoder(w).Encode(LoginResponse{
+	a.respondJSON(w, http.StatusOK, LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-	}); err != nil {
-		a.logger.Error("failed to encode response json",
-			zap.Error(err),
-		)
-	}
+	})
 }
