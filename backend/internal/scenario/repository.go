@@ -16,8 +16,21 @@ type ScenarioRepository interface {
 	GetById(ctx context.Context, id string) (*Scenario, error)
 }
 
+type ScenarioCatalog interface {
+	List(
+		ctx context.Context,
+	) ([]ScenarioInfo, error)
+}
+
 type YAMLRepository struct {
 	scenarios map[string]*Scenario
+}
+
+type ScenarioInfo struct {
+	ID         string
+	Title      string
+	Role       Role
+	Difficulty Difficulty
 }
 
 func NewYAMLRepository(directory string) (*YAMLRepository, error) {
@@ -106,4 +119,29 @@ func (r *YAMLRepository) GetById(
 	}
 
 	return found, nil
+}
+
+func (r *YAMLRepository) List(
+	ctx context.Context,
+) ([]ScenarioInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make(
+		[]ScenarioInfo,
+		0,
+		len(r.scenarios),
+	)
+
+	for _, s := range r.scenarios {
+		result = append(result, ScenarioInfo{
+			ID:         s.ID,
+			Title:      s.Title,
+			Role:       s.Role,
+			Difficulty: s.Difficulty,
+		})
+	}
+
+	return result, nil
 }

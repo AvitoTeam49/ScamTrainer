@@ -203,6 +203,7 @@ func newValidScenario() *Scenario {
 		ID:          "test_scenario",
 		Title:       "Test scenario",
 		Role:        RoleSeller,
+		Difficulty:  DifficultyEasy,
 		StartNodeID: "start",
 		LLM: ScenarioLLM{
 			CharacterPrompt: "Act as another platform user",

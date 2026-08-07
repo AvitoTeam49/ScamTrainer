@@ -42,6 +42,18 @@ func validateFields(scenario *Scenario) error {
 		return fmt.Errorf("unsupported role %q", scenario.Role)
 	}
 
+	switch scenario.Difficulty {
+	case DifficultyEasy,
+		DifficultyMedium,
+		DifficultyHard:
+	default:
+		return fmt.Errorf(
+			"scenario %q has invalid difficulty %q",
+			scenario.ID,
+			scenario.Difficulty,
+		)
+	}
+
 	if len(scenario.Nodes) == 0 {
 		return errors.New("scenario contains no nodes")
 	}
