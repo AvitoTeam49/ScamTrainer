@@ -89,6 +89,8 @@ func run() error {
 
 	bus := eventbus.New(0)
 
+	usersService := usersusecase.NewUserService(userspostgres.NewPostgresRepository(pool), logger)
+
 	sessions := training.NewInMemorySessionRepository()
 	trainingService := training.NewService(
 		scenarios,
@@ -105,6 +107,7 @@ func run() error {
 		sessions,
 		trainingService,
 		bus,
+		usersService,
 		deepseek.New(deepseek.Config{
 			BaseURL:    cfg.DeepSeek.BaseURL,
 			APIKey:     cfg.DeepSeek.APIKey,
@@ -116,7 +119,6 @@ func run() error {
 	)
 	chatrest.NewHandler(chatService, bus).Register(protected)
 
-	usersService := usersusecase.NewUserService(userspostgres.NewPostgresRepository(pool), logger)
 	usersrest.New(usersService, logger).Register(protected)
 
 	server := &http.Server{

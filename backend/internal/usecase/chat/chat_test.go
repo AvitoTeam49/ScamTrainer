@@ -104,6 +104,72 @@ func TestRunAgentTurn_SafeTransitionAddsScore(t *testing.T) {
 	}
 }
 
+func TestRunAgentTurn_AwardsChatScoreToUserOnce(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	fixture.agent.replies = []*agent.Reply{
+		{
+			Content:   "Понимаю",
+			ToolCalls: []agent.ToolCall{applyTransitionCall("stay_on_platform")},
+		},
+		{Content: "Хорошо"},
+	}
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
+	}
+
+	want := []scoreAward{{userID: 42, scoreDelta: 20}}
+	if got := fixture.awards.calls; !equalAwards(got, want) {
+		t.Fatalf("awards: got %v, want %v", got, want)
+	}
+}
+
+func TestRunAgentTurn_DoesNotAwardTwiceWhenChatAlreadyFinished(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.chats.finishes = 1
+
+	fixture.agent.replies = []*agent.Reply{
+		{
+			Content:   "Понимаю",
+			ToolCalls: []agent.ToolCall{applyTransitionCall("stay_on_platform")},
+		},
+		{Content: "Хорошо"},
+	}
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err == nil {
+		t.Fatal("run agent turn should fail when the chat was finished by another turn")
+	}
+
+	if got := len(fixture.awards.calls); got != 0 {
+		t.Fatalf("awards: got %d calls, want none", got)
+	}
+}
+
+func TestRunAgentTurn_RestoresLostSession(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	if _, err := fixture.sessions.GetById(context.Background(), "session-1"); err == nil {
+		t.Fatal("session must be absent before the turn")
+	}
+
+	fixture.agent.replies = []*agent.Reply{
+		{
+			Content:   "Понимаю",
+			ToolCalls: []agent.ToolCall{applyTransitionCall("stay_on_platform")},
+		},
+		{Content: "Хорошо"},
+	}
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
+	}
+
+	if got := fixture.chats.chat.CurrentNodeID; got != "safe_ending" {
+		t.Fatalf("current node: got %q, want %q", got, "safe_ending")
+	}
+}
+
 func TestRunAgentTurn_UnknownTransitionLeavesScoreUntouched(t *testing.T) {
 	fixture := newFixture(t, "start")
 
@@ -235,6 +301,7 @@ type fixture struct {
 	events    *fakeEventPublisher
 	agent     *fakeAgent
 	sessions  *training.InMemorySessionRepository
+	awards    *fakeScoreAwarder
 }
 
 func newFixture(t *testing.T, currentNodeID string) *fixture {
@@ -254,6 +321,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 	chatAgent := &fakeAgent{}
 	scenarios := &fakeScenarioSource{scenario: testScenario()}
 	sessions := training.NewInMemorySessionRepository()
+	awards := &fakeScoreAwarder{}
 
 	return &fixture{
 		service: New(
@@ -264,6 +332,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 			sessions,
 			training.NewService(scenarios, sessions, scenariodomain.NewEngine(), training.UUIDGenerator{}),
 			events,
+			awards,
 			chatAgent,
 			Options{},
 		),
@@ -272,7 +341,37 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 		events:    events,
 		agent:     chatAgent,
 		sessions:  sessions,
+		awards:    awards,
 	}
+}
+
+type fakeScoreAwarder struct {
+	calls []scoreAward
+}
+
+type scoreAward struct {
+	userID     int64
+	scoreDelta int
+}
+
+func (f *fakeScoreAwarder) UpdateUserScore(_ context.Context, userID int64, scoreDelta int) error {
+	f.calls = append(f.calls, scoreAward{userID: userID, scoreDelta: scoreDelta})
+
+	return nil
+}
+
+func equalAwards(got, want []scoreAward) bool {
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func equalTypes(got, want []chatdomain.EventType) bool {

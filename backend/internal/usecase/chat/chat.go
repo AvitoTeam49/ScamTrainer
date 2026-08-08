@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent"
@@ -23,6 +24,12 @@ type EventPublisher interface {
 	Publish(ctx context.Context, event chatdomain.Event)
 }
 
+// ScoreAwarder начисляет пользователю дельту очков. Сколько именно начислить
+// и когда — решает чат, снаружи про сценарии и чаты ничего не известно.
+type ScoreAwarder interface {
+	UpdateUserScore(ctx context.Context, userID int64, scoreDelta int) error
+}
+
 type Options struct {
 	HistoryLimit  int
 	MaxToolRounds int
@@ -35,6 +42,7 @@ type Service struct {
 	scenarios     scenariodomain.ScenarioRepository
 	sessions      training.SessionRepository
 	events        EventPublisher
+	awards        ScoreAwarder
 	training      *training.TrainingService
 	agent         agent.Agent
 	historyLimit  int
@@ -49,6 +57,7 @@ func New(
 	sessions training.SessionRepository,
 	trainingService *training.TrainingService,
 	events EventPublisher,
+	awards ScoreAwarder,
 	chatAgent agent.Agent,
 	options Options,
 ) *Service {
@@ -66,6 +75,7 @@ func New(
 		scenarios:     scenarios,
 		sessions:      sessions,
 		events:        events,
+		awards:        awards,
 		training:      trainingService,
 		agent:         chatAgent,
 		historyLimit:  options.HistoryLimit,
@@ -432,9 +442,19 @@ func (s *Service) finish(ctx context.Context, chat *chatdomain.Chat, resume stri
 		return chatdomain.ErrChatFinished
 	}
 
+	s.award(ctx, chat)
+
 	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
 
 	return nil
+}
+
+// Чат уже завершён и сохранён, поэтому неудачное начисление не должно ронять ход агента.
+func (s *Service) award(ctx context.Context, chat *chatdomain.Chat) {
+	if err := s.awards.UpdateUserScore(ctx, chat.UserID, int(chat.Score)); err != nil {
+		slog.ErrorContext(ctx, "failed to award chat score",
+			"chat_id", chat.ID, "user_id", chat.UserID, "score", chat.Score, "error", err)
+	}
 }
 
 // Сессии тренировки живут в памяти, поэтому после рестарта их восстанавливаем из строки чата.
