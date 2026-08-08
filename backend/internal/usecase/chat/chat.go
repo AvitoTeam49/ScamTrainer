@@ -241,6 +241,14 @@ func (s *Service) GetChat(ctx context.Context, chatID, userID int64) (*chatdomai
 	return s.ownedChat(ctx, chatID, userID)
 }
 
+func (s *Service) ListChats(
+	ctx context.Context,
+	userID int64,
+	cursor chatdomain.Cursor,
+) ([]*chatdomain.Chat, error) {
+	return s.chats.ListByUserID(ctx, userID, cursor)
+}
+
 func (s *Service) ListMessages(
 	ctx context.Context,
 	chatID, userID int64,

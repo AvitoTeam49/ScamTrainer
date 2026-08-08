@@ -15,6 +15,7 @@ type ChatService interface {
 	SendMessage(ctx context.Context, chatID, userID int64, content string) (*chatdomain.Message, error)
 	RunAgentTurn(ctx context.Context, chatID int64) error
 	GetChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error)
+	ListChats(ctx context.Context, userID int64, cursor chatdomain.Cursor) ([]*chatdomain.Chat, error)
 	ListMessages(ctx context.Context, chatID, userID int64, cursor chatdomain.Cursor) ([]*chatdomain.Message, error)
 	ListDecisions(ctx context.Context, chatID, userID int64, cursor chatdomain.Cursor) ([]*chatdomain.Decision, error)
 }
@@ -34,6 +35,7 @@ func NewHandler(chats ChatService, events EventSubscriber) *Handler {
 
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/chats", h.startChat)
+	mux.HandleFunc("GET /v1/chats", h.listChats)
 	mux.HandleFunc("GET /v1/chats/{chatID}", h.getChat)
 	mux.HandleFunc("POST /v1/chats/{chatID}/messages", h.sendMessage)
 	mux.HandleFunc("GET /v1/chats/{chatID}/messages", h.listMessages)
@@ -66,6 +68,28 @@ func (h *Handler) startChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, chatFrom(chat))
+}
+
+func (h *Handler) listChats(w http.ResponseWriter, r *http.Request) {
+	userID, err := requestUserID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+
+	cursor, err := cursorFrom(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+
+	chats, err := h.chats.ListChats(r.Context(), userID, cursor)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, chatsFrom(chats, cursor.Limit))
 }
 
 func (h *Handler) getChat(w http.ResponseWriter, r *http.Request) {

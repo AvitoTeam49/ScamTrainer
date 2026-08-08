@@ -24,6 +24,7 @@ import (
 	scenarioyaml "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/yaml/scenario"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/training"
 	chatrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/chat"
+	scenariosrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/scenarios"
 	usersrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/users"
 	chatusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/usecase/chat"
 	usersusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/usecase/users"
@@ -120,10 +121,18 @@ func run() error {
 	chatrest.NewHandler(chatService, bus).Register(protected)
 
 	usersrest.New(usersService, logger).Register(protected)
+	scenariosrest.NewHandler(scenarios).Register(protected)
+
+	// healthz живёт вне HTTP_PREFIX, чтобы проверки инфраструктуры не зависели от версии API.
+	root := http.NewServeMux()
+	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	root.Handle("/", http.StripPrefix(cfg.HTTP.Prefix, mux))
 
 	server := &http.Server{
 		Addr:    cfg.HTTP.Addr,
-		Handler: http.StripPrefix(cfg.HTTP.Prefix, mux),
+		Handler: root,
 	}
 
 	return serve(ctx, server, cfg.HTTP.ShutdownTimeout, bus.Close)

@@ -23,6 +23,7 @@ type chatResponse struct {
 	ID            int64      `json:"id"`
 	UserID        int64      `json:"user_id"`
 	ScenarioID    int64      `json:"scenario_id"`
+	SessionID     string     `json:"session_id"`
 	Title         string     `json:"title"`
 	Status        string     `json:"status"`
 	Resume        string     `json:"resume"`
@@ -30,6 +31,11 @@ type chatResponse struct {
 	CurrentNodeID string     `json:"current_node_id"`
 	CreatedAt     time.Time  `json:"created_at"`
 	FinishedAt    *time.Time `json:"finished_at"`
+}
+
+type chatsResponse struct {
+	Items       []chatResponse `json:"items"`
+	NextAfterID *int64         `json:"next_after_id"`
 }
 
 type messageResponse struct {
@@ -75,6 +81,7 @@ func chatFrom(chat *chatdomain.Chat) chatResponse {
 		ID:            chat.ID,
 		UserID:        chat.UserID,
 		ScenarioID:    chat.ScenarioID,
+		SessionID:     chat.SessionID,
 		Title:         chat.Title,
 		Status:        string(chat.Status),
 		Resume:        chat.Resume,
@@ -83,6 +90,20 @@ func chatFrom(chat *chatdomain.Chat) chatResponse {
 		CreatedAt:     chat.CreatedAt,
 		FinishedAt:    chat.FinishedAt,
 	}
+}
+
+func chatsFrom(chats []*chatdomain.Chat, limit int) chatsResponse {
+	items := make([]chatResponse, 0, len(chats))
+	for _, chat := range chats {
+		items = append(items, chatFrom(chat))
+	}
+
+	response := chatsResponse{Items: items}
+	if len(items) == limit {
+		response.NextAfterID = &items[len(items)-1].ID
+	}
+
+	return response
 }
 
 func messageFrom(message *chatdomain.Message) messageResponse {
