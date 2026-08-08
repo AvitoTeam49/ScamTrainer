@@ -217,11 +217,21 @@ func writeScenarioFile(
 }
 
 func validScenarioYAML(id int) string {
+	return validScenarioYAMLWithDifficulty(
+		id,
+		DifficultyEasy,
+	)
+}
+
+func validScenarioYAMLWithDifficulty(
+	id int,
+	difficulty Difficulty,
+) string {
 	return fmt.Sprintf(`
 id: %d
 title: Test scenario
 role: seller
-difficulty: 0
+difficulty: %d
 start_node_id: start
 
 llm:
@@ -234,7 +244,6 @@ nodes:
     message:
       author: scammer
       text: Open this external link
-
     llm:
       reply_instruction: Persuade the user
 
@@ -248,7 +257,6 @@ nodes:
         feedback: Safe action
         risk_tags:
           - external_link
-
       - id: open_link
         description: Open the external link
         examples:
@@ -272,9 +280,209 @@ nodes:
     type: ending
     title: Unsafe ending
     outcome: unsafe
-
     message:
       author: system
       text: The user opened a phishing link
-`, id)
+`, id, difficulty)
+}
+
+func TestYAMLRepository_List(t *testing.T) {
+	directory := t.TempDir()
+
+	writeScenarioFile(
+		t,
+		directory,
+		"first.yaml",
+		validScenarioYAMLWithDifficulty(
+			1,
+			DifficultyEasy,
+		),
+	)
+
+	writeScenarioFile(
+		t,
+		directory,
+		"second.yaml",
+		validScenarioYAMLWithDifficulty(
+			2,
+			DifficultyMedium,
+		),
+	)
+
+	repository, err := NewYAMLRepository(directory)
+	if err != nil {
+		t.Fatalf("create repository: %v", err)
+	}
+
+	scenarios, err := repository.List(context.Background())
+	if err != nil {
+		t.Fatalf("list scenarios: %v", err)
+	}
+
+	if len(scenarios) != 2 {
+		t.Fatalf(
+			"unexpected scenarios count: got %d, want 2",
+			len(scenarios),
+		)
+	}
+
+	byID := make(map[int]ScenarioInfo, len(scenarios))
+	for _, scenario := range scenarios {
+		byID[scenario.ID] = scenario
+	}
+
+	first, exists := byID[1]
+	if !exists {
+		t.Fatal("scenario 1 not found")
+	}
+
+	if first.Title != "Test scenario" {
+		t.Errorf(
+			"unexpected title: got %q",
+			first.Title,
+		)
+	}
+
+	if first.Role != RoleSeller {
+		t.Errorf(
+			"unexpected role: got %q",
+			first.Role,
+		)
+	}
+
+	if first.Difficulty != DifficultyEasy {
+		t.Errorf(
+			"unexpected difficulty: got %d",
+			first.Difficulty,
+		)
+	}
+
+	second, exists := byID[2]
+	if !exists {
+		t.Fatal("scenario 2 not found")
+	}
+
+	if second.Difficulty != DifficultyMedium {
+		t.Errorf(
+			"unexpected difficulty: got %d",
+			second.Difficulty,
+		)
+	}
+}
+
+func TestYAMLRepository_ListByDifficulty(t *testing.T) {
+	directory := t.TempDir()
+
+	writeScenarioFile(
+		t,
+		directory,
+		"easy.yaml",
+		validScenarioYAMLWithDifficulty(
+			1,
+			DifficultyEasy,
+		),
+	)
+
+	writeScenarioFile(
+		t,
+		directory,
+		"medium-first.yaml",
+		validScenarioYAMLWithDifficulty(
+			2,
+			DifficultyMedium,
+		),
+	)
+
+	writeScenarioFile(
+		t,
+		directory,
+		"medium-second.yaml",
+		validScenarioYAMLWithDifficulty(
+			3,
+			DifficultyMedium,
+		),
+	)
+
+	repository, err := NewYAMLRepository(directory)
+	if err != nil {
+		t.Fatalf("create repository: %v", err)
+	}
+
+	scenarios, err := repository.ListByDifficulty(
+		context.Background(),
+		DifficultyMedium,
+	)
+	if err != nil {
+		t.Fatalf("list scenarios by difficulty: %v", err)
+	}
+
+	if len(scenarios) != 2 {
+		t.Fatalf(
+			"unexpected scenarios count: got %d, want 2",
+			len(scenarios),
+		)
+	}
+
+	byID := make(map[int]ScenarioInfo, len(scenarios))
+	for _, scenario := range scenarios {
+		byID[scenario.ID] = scenario
+	}
+
+	if _, exists := byID[1]; exists {
+		t.Fatal("easy scenario must not be returned")
+	}
+
+	for _, id := range []int{2, 3} {
+		scenario, exists := byID[id]
+		if !exists {
+			t.Fatalf(
+				"scenario %d not found",
+				id,
+			)
+		}
+
+		if scenario.Difficulty != DifficultyMedium {
+			t.Errorf(
+				"scenario %d has unexpected difficulty: got %d",
+				id,
+				scenario.Difficulty,
+			)
+		}
+	}
+}
+
+func TestYAMLRepository_ListByDifficulty_NoMatches(
+	t *testing.T,
+) {
+	directory := t.TempDir()
+
+	writeScenarioFile(
+		t,
+		directory,
+		"easy.yaml",
+		validScenarioYAMLWithDifficulty(
+			1,
+			DifficultyEasy,
+		),
+	)
+
+	repository, err := NewYAMLRepository(directory)
+	if err != nil {
+		t.Fatalf("create repository: %v", err)
+	}
+
+	scenarios, err := repository.ListByDifficulty(
+		context.Background(),
+		DifficultyHard,
+	)
+	if err != nil {
+		t.Fatalf("list scenarios by difficulty: %v", err)
+	}
+
+	if len(scenarios) != 0 {
+		t.Fatalf(
+			"expected no scenarios, got %d",
+			len(scenarios),
+		)
+	}
 }
