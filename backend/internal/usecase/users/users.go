@@ -10,7 +10,7 @@ import (
 
 type (
 	Repository interface {
-		CreateUser(ctx context.Context, username string) (*usersdomain.User, error)
+		CreateUser(ctx context.Context, userID int64, username string) (*usersdomain.User, error)
 		GetUserByID(ctx context.Context, id int64) (*usersdomain.User, error)
 		GetUserProgress(ctx context.Context, userID int64) (*usersdomain.UserProgress, error)
 		UpdateUserScore(ctx context.Context, userID int64, scoreDelta int) error
@@ -30,8 +30,8 @@ func NewUserService(repo Repository, logger *zap.Logger) *userService {
 	}
 }
 
-func (s *userService) CreateUser(ctx context.Context, username string) (*usersdomain.User, error) {
-	user, err := s.repo.CreateUser(ctx, username)
+func (s *userService) CreateUser(ctx context.Context, userID int64, username string) (*usersdomain.User, error) {
+	user, err := s.repo.CreateUser(ctx, userID, username)
 	if err != nil {
 		return nil, fmt.Errorf("create user repo err: %w", err)
 	}

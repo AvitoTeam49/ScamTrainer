@@ -122,23 +122,23 @@ func newScenarioSource(
 	ctx context.Context,
 	cfg config.ScenariosConfig,
 	logger *zap.Logger,
-) (*graphScenarioSource, error) {
+) (*scenarioyaml.YAMLRepository, error) {
 	graphs, err := scenarioyaml.NewYAMLRepository(cfg.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load scenarios: %w", err)
 	}
 
-	source := newGraphScenarioSource(graphs, cfg.Map)
-	if err := source.verify(ctx); err != nil {
-		return nil, fmt.Errorf("failed to verify scenario mapping: %w", err)
+	loaded, err := graphs.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list scenarios: %w", err)
 	}
 
 	logger.Info("scenario graphs loaded",
 		zap.String("dir", cfg.Dir),
-		zap.Int("mapped_scenarios", len(cfg.Map)),
+		zap.Int("scenarios", len(loaded)),
 	)
 
-	return source, nil
+	return graphs, nil
 }
 
 func serve(

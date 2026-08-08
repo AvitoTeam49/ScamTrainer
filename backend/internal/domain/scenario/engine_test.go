@@ -7,7 +7,7 @@ import (
 
 func TestEngine_Start(t *testing.T) {
 	s := &Scenario{
-		ID:          "seller-scam",
+		ID:          1,
 		StartNodeID: "start",
 		Nodes: map[string]*Node{
 			"start": {
@@ -22,20 +22,20 @@ func TestEngine_Start(t *testing.T) {
 	session := engine.Start(
 		s,
 		"session-1",
-		"user-1",
+		42,
 	)
 
 	if session.ID != "session-1" {
 		t.Errorf("ID = %q, want %q", session.ID, "session-1")
 	}
 
-	if session.UserID != "user-1" {
-		t.Errorf("UserID = %q, want %q", session.UserID, "user-1")
+	if session.UserID != 42 {
+		t.Errorf("UserID = %d, want %d", session.UserID, 42)
 	}
 
 	if session.ScenarioID != s.ID {
 		t.Errorf(
-			"ScenarioID = %q, want %q",
+			"ScenarioID = %d, want %d",
 			session.ScenarioID,
 			s.ID,
 		)
@@ -83,7 +83,7 @@ func TestEngine_Start(t *testing.T) {
 
 func TestEngine_ApplyChoice_MovesToNextNode(t *testing.T) {
 	s := &Scenario{
-		ID:          "seller-scam",
+		ID:          1,
 		StartNodeID: "start",
 		Nodes: map[string]*Node{
 			"start": {
@@ -106,7 +106,7 @@ func TestEngine_ApplyChoice_MovesToNextNode(t *testing.T) {
 	}
 
 	engine := NewEngine()
-	session := engine.Start(s, "session-1", "user-1")
+	session := engine.Start(s, "session-1", 1)
 
 	previousUpdatedAt := session.UpdatedAt
 
@@ -155,8 +155,6 @@ func TestEngine_ApplyChoice_MovesToNextNode(t *testing.T) {
 			previousUpdatedAt,
 		)
 	}
-
-	// Проверяем описание произошедшего шага.
 
 	if decision.SessionID != session.ID {
 		t.Errorf(
@@ -216,7 +214,7 @@ func TestEngine_ApplyChoice_MovesToNextNode(t *testing.T) {
 
 func TestEngine_ApplyChoice_CompletesSession(t *testing.T) {
 	s := &Scenario{
-		ID:          "seller-scam",
+		ID:          1,
 		StartNodeID: "start",
 		Nodes: map[string]*Node{
 			"start": {
@@ -239,7 +237,7 @@ func TestEngine_ApplyChoice_CompletesSession(t *testing.T) {
 	}
 
 	engine := NewEngine()
-	session := engine.Start(s, "session-1", "user-1")
+	session := engine.Start(s, "session-1", 1)
 
 	decision, err := engine.ApplyChoice(
 		s,
@@ -289,7 +287,7 @@ func TestEngine_ApplyChoice_CompletesSession(t *testing.T) {
 
 func TestEngine_ApplyChoice_RejectsUnknownTransition(t *testing.T) {
 	s := &Scenario{
-		ID:          "seller-scam",
+		ID:          1,
 		StartNodeID: "start",
 		Nodes: map[string]*Node{
 			"start": {
@@ -300,7 +298,7 @@ func TestEngine_ApplyChoice_RejectsUnknownTransition(t *testing.T) {
 	}
 
 	engine := NewEngine()
-	session := engine.Start(s, "session-1", "user-1")
+	session := engine.Start(s, "session-1", 1)
 
 	previousNodeID := session.CurrentNodeID
 	previousScore := session.Score

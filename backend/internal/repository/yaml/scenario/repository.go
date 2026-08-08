@@ -10,10 +10,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var _ scenariodomain.Repository = (*YAMLRepository)(nil)
+var (
+	_ scenariodomain.ScenarioRepository = (*YAMLRepository)(nil)
+	_ scenariodomain.ScenarioCatalog    = (*YAMLRepository)(nil)
+)
 
 type YAMLRepository struct {
-	scenarios map[string]*scenariodomain.Scenario
+	scenarios map[int]*scenariodomain.Scenario
 }
 
 func NewYAMLRepository(directory string) (*YAMLRepository, error) {
@@ -23,7 +26,7 @@ func NewYAMLRepository(directory string) (*YAMLRepository, error) {
 	}
 
 	repository := &YAMLRepository{
-		scenarios: make(map[string]*scenariodomain.Scenario)}
+		scenarios: make(map[int]*scenariodomain.Scenario)}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -46,7 +49,7 @@ func NewYAMLRepository(directory string) (*YAMLRepository, error) {
 
 		if exists {
 			return nil, fmt.Errorf(
-				"duplicate scenario id %q",
+				"duplicate scenario id %d",
 				loaded.ID,
 			)
 		}
@@ -72,7 +75,7 @@ func loadScenario(path string) (*scenariodomain.Scenario, error) {
 	for nodeID, node := range loaded.Nodes {
 		if node == nil {
 			return nil, fmt.Errorf(
-				"scenario %q contains empty node %q",
+				"scenario %d contains empty node %q",
 				loaded.ID,
 				nodeID,
 			)
@@ -88,18 +91,76 @@ func loadScenario(path string) (*scenariodomain.Scenario, error) {
 	return &loaded, nil
 }
 
-func (r *YAMLRepository) GetByID(
+func (r *YAMLRepository) GetById(
 	_ context.Context,
-	scenarioID string,
+	scenarioID int,
 ) (*scenariodomain.Scenario, error) {
 	found, exists := r.scenarios[scenarioID]
 	if !exists {
 		return nil, fmt.Errorf(
-			"%w: %s",
+			"%w: %d",
 			scenariodomain.ErrScenarioNotFound,
 			scenarioID,
 		)
 	}
 
 	return found, nil
+}
+
+func scenarioInfoFrom(s *scenariodomain.Scenario) scenariodomain.ScenarioInfo {
+	return scenariodomain.ScenarioInfo{
+		ID:         s.ID,
+		Title:      s.Title,
+		Role:       s.Role,
+		Difficulty: s.Difficulty,
+	}
+}
+
+// Метаданные сценариев
+func (r *YAMLRepository) List(
+	ctx context.Context,
+) ([]scenariodomain.ScenarioInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make(
+		[]scenariodomain.ScenarioInfo,
+		0,
+		len(r.scenarios),
+	)
+
+	for _, s := range r.scenarios {
+		result = append(
+			result,
+			scenarioInfoFrom(s),
+		)
+	}
+
+	return result, nil
+}
+
+// Метаданные сценариев по уровню сложности
+func (r *YAMLRepository) ListByDifficulty(
+	ctx context.Context,
+	difficulty scenariodomain.Difficulty,
+) ([]scenariodomain.ScenarioInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make([]scenariodomain.ScenarioInfo, 0)
+
+	for _, s := range r.scenarios {
+		if s.Difficulty != difficulty {
+			continue
+		}
+
+		result = append(
+			result,
+			scenarioInfoFrom(s),
+		)
+	}
+
+	return result, nil
 }

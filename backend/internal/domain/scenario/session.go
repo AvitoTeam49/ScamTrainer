@@ -1,6 +1,8 @@
 package scenariodomain
 
-import "time"
+import (
+	"time"
+)
 
 type SessionStatus string
 
@@ -11,8 +13,8 @@ const (
 
 type TrainingSession struct {
 	ID         string
-	UserID     string
-	ScenarioID string
+	UserID     int64
+	ScenarioID int
 
 	CurrentNodeID string
 	Status        SessionStatus

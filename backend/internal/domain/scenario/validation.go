@@ -30,8 +30,8 @@ func Validate(scenario *Scenario) error {
 
 func validateFields(scenario *Scenario) error {
 
-	if scenario.ID == "" {
-		return errors.New("scenario id is empty")
+	if scenario.ID <= 0 {
+		return errors.New("scenario id must be positive")
 	}
 
 	if scenario.Title == "" {
@@ -40,6 +40,18 @@ func validateFields(scenario *Scenario) error {
 
 	if scenario.Role != RoleBuyer && scenario.Role != RoleSeller {
 		return fmt.Errorf("unsupported role %q", scenario.Role)
+	}
+
+	switch scenario.Difficulty {
+	case DifficultyEasy,
+		DifficultyMedium,
+		DifficultyHard:
+	default:
+		return fmt.Errorf(
+			"scenario %d has invalid difficulty %d",
+			scenario.ID,
+			scenario.Difficulty,
+		)
 	}
 
 	if len(scenario.Nodes) == 0 {

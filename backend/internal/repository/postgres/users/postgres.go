@@ -28,8 +28,11 @@ func NewPostgresRepository(qdb DB) *postgresRepository {
 	}
 }
 
-func (r *postgresRepository) CreateUser(ctx context.Context, username string) (*usersdomain.User, error) {
-	u, err := r.queries.CreateUser(ctx, username)
+func (r *postgresRepository) CreateUser(ctx context.Context, userID int64, username string) (*usersdomain.User, error) {
+	u, err := r.queries.CreateUser(ctx, userssqlc.CreateUserParams{
+		ID:       userID,
+		Username: username,
+	})
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {

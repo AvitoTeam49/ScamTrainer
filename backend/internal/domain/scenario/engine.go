@@ -19,7 +19,7 @@ func NewEngine() *Engine {
 	return &Engine{}
 }
 
-func (e *Engine) Start(s *Scenario, sessionID string, userID string) *TrainingSession {
+func (e *Engine) Start(s *Scenario, sessionID string, userID int64) *TrainingSession {
 	now := time.Now()
 	return &TrainingSession{
 		ID:            sessionID,

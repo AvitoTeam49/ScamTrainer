@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/users"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/middleware"
 	"go.uber.org/zap"
 )
 
@@ -20,6 +21,13 @@ type errorResponse struct {
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		h.logger.Warn("create user failed: unauthorized or missing user_id in context")
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	var req createUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -35,7 +43,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.usersService.CreateUser(ctx, username)
+	user, err := h.usersService.CreateUser(ctx, userID, username)
 	if err != nil {
 		if errors.Is(err, usersdomain.ErrUserAlreadyExists) {
 			h.logger.Warn("user already exists", zap.String("username", username))
@@ -47,6 +55,5 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info("user successfully created", zap.Int64("id", user.ID), zap.String("username", user.Username))
 	h.respondJSON(w, http.StatusCreated, user)
 }

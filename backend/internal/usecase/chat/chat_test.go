@@ -292,7 +292,7 @@ func applyTransitionCall(transitionID string) agent.ToolCall {
 
 func testScenario() *scenariodomain.Scenario {
 	return &scenariodomain.Scenario{
-		ID:          "seller_fake_delivery",
+		ID:          7,
 		Title:       "Поддельная ссылка на доставку",
 		Role:        scenariodomain.RoleSeller,
 		StartNodeID: "start",
@@ -340,7 +340,7 @@ type fakeScenarioSource struct {
 	scenario *scenariodomain.Scenario
 }
 
-func (f *fakeScenarioSource) Scenario(context.Context, int64) (*scenariodomain.Scenario, error) {
+func (f *fakeScenarioSource) GetById(context.Context, int) (*scenariodomain.Scenario, error) {
 	return f.scenario, nil
 }
 

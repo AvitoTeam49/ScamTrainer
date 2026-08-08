@@ -1,8 +1,9 @@
 -- +goose Up
 CREATE TABLE chats (
     id              bigserial PRIMARY KEY,
-    user_id         bigint NOT NULL,
+    user_id         bigint NOT NULL REFERENCES users_schema.users (id) ON DELETE CASCADE,
     scenario_id     bigint NOT NULL,
+    session_id      text NOT NULL DEFAULT '',
     title           text NOT NULL,
     status          text NOT NULL CHECK (status IN ('active', 'finished', 'abandoned')),
     resume          text NOT NULL DEFAULT '',

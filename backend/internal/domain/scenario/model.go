@@ -7,6 +7,14 @@ const (
 	RoleSeller Role = "seller"
 )
 
+type Difficulty int
+
+const (
+	DifficultyEasy = iota
+	DifficultyMedium
+	DifficultyHard
+)
+
 type NodeType string
 
 const (
@@ -15,9 +23,10 @@ const (
 )
 
 type Scenario struct {
-	ID          string           `yaml:"id"`
+	ID          int              `yaml:"id"`
 	Title       string           `yaml:"title"`
 	Role        Role             `yaml:"role"`
+	Difficulty  Difficulty       `yaml:"difficulty"`
 	StartNodeID string           `yaml:"start_node_id"`
 	LLM         ScenarioLLM      `yaml:"llm"`
 	Nodes       map[string]*Node `yaml:"nodes"`

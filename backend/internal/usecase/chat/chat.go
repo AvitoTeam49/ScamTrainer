@@ -18,10 +18,6 @@ const (
 	genericFailureReason = "internal error"
 )
 
-type ScenarioSource interface {
-	Scenario(ctx context.Context, scenarioID int64) (*scenariodomain.Scenario, error)
-}
-
 type EventPublisher interface {
 	Publish(ctx context.Context, event chatdomain.Event)
 }
@@ -35,7 +31,7 @@ type Service struct {
 	chats         chatdomain.ChatRepository
 	messages      chatdomain.MessageRepository
 	decisions     chatdomain.DecisionRepository
-	scenarios     ScenarioSource
+	scenarios     scenariodomain.ScenarioRepository
 	events        EventPublisher
 	engine        *scenariodomain.Engine
 	agent         agent.Agent
@@ -47,7 +43,7 @@ func New(
 	chats chatdomain.ChatRepository,
 	messages chatdomain.MessageRepository,
 	decisions chatdomain.DecisionRepository,
-	scenarios ScenarioSource,
+	scenarios scenariodomain.ScenarioRepository,
 	events EventPublisher,
 	chatAgent agent.Agent,
 	options Options,
@@ -73,7 +69,7 @@ func New(
 }
 
 func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title string) (*chatdomain.Chat, error) {
-	scenario, err := s.scenarios.Scenario(ctx, scenarioID)
+	scenario, err := s.scenarios.GetById(ctx, int(scenarioID))
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +104,7 @@ func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content
 		return nil, chatdomain.ErrChatFinished
 	}
 
-	scenario, err := s.scenarios.Scenario(ctx, chat.ScenarioID)
+	scenario, err := s.scenarios.GetById(ctx, int(chat.ScenarioID))
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +137,7 @@ func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
 		return nil
 	}
 
-	scenario, err := s.scenarios.Scenario(ctx, chat.ScenarioID)
+	scenario, err := s.scenarios.GetById(ctx, int(chat.ScenarioID))
 	if err != nil {
 		return s.fail(ctx, chatID, err)
 	}

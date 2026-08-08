@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -44,7 +43,6 @@ type PostgresConfig struct {
 
 type ScenariosConfig struct {
 	Dir string
-	Map map[int64]string
 }
 
 func (c ScenariosConfig) Enabled() bool {
@@ -144,53 +142,7 @@ func loadScenarios() (ScenariosConfig, error) {
 		return ScenariosConfig{}, fmt.Errorf("%w: SCENARIOS_DIR", ErrMissingEnv)
 	}
 
-	mapping, err := parseScenarioMap(os.Getenv("SCENARIOS_MAP"))
-	if err != nil {
-		return ScenariosConfig{}, err
-	}
-
-	return ScenariosConfig{Dir: dir, Map: mapping}, nil
-}
-
-func parseScenarioMap(raw string) (map[int64]string, error) {
-	mapping := make(map[int64]string)
-
-	for _, pair := range strings.Split(raw, ",") {
-		pair = strings.TrimSpace(pair)
-		if pair == "" {
-			continue
-		}
-
-		id, scenarioID, found := strings.Cut(pair, ":")
-		if !found {
-			return nil, fmt.Errorf(
-				"%w: SCENARIOS_MAP entry %q must look like <id>:<scenario_id>", ErrInvalidEnv, pair)
-		}
-
-		parsed, err := strconv.ParseInt(strings.TrimSpace(id), 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("%w: SCENARIOS_MAP entry %q: %v", ErrInvalidEnv, pair, err)
-		}
-
-		if parsed <= 0 {
-			return nil, fmt.Errorf(
-				"%w: SCENARIOS_MAP entry %q must use a positive id", ErrInvalidEnv, pair)
-		}
-
-		scenarioID = strings.TrimSpace(scenarioID)
-		if scenarioID == "" {
-			return nil, fmt.Errorf(
-				"%w: SCENARIOS_MAP entry %q has an empty scenario id", ErrInvalidEnv, pair)
-		}
-
-		if _, exists := mapping[parsed]; exists {
-			return nil, fmt.Errorf("%w: SCENARIOS_MAP contains duplicate id %d", ErrInvalidEnv, parsed)
-		}
-
-		mapping[parsed] = scenarioID
-	}
-
-	return mapping, nil
+	return ScenariosConfig{Dir: dir}, nil
 }
 
 func stringEnv(name, fallback string) string {
