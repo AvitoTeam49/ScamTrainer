@@ -9,12 +9,13 @@ import (
 )
 
 type Querier interface {
+	// Закрытие идемпотентно: чат переводится в терминальный статус (finished или abandoned)
+	// ровно один раз, поэтому параллельный ход агента не сможет закрыть его повторно.
+	CloseChat(ctx context.Context, arg CloseChatParams) (int64, error)
 	CreateChat(ctx context.Context, arg CreateChatParams) (int64, error)
 	CreateDecision(ctx context.Context, arg CreateDecisionParams) (CreateDecisionRow, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (CreateMessageRow, error)
 	DeleteChat(ctx context.Context, id int64) (int64, error)
-	// Завершение идемпотентно: параллельный ход агента не сможет завершить чат дважды.
-	FinishChat(ctx context.Context, arg FinishChatParams) (int64, error)
 	GetChatByID(ctx context.Context, id int64) (Chat, error)
 	ListChatsByUserID(ctx context.Context, arg ListChatsByUserIDParams) ([]Chat, error)
 	ListDecisionsByChatID(ctx context.Context, arg ListDecisionsByChatIDParams) ([]ChatDecision, error)

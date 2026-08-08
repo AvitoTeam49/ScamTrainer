@@ -260,6 +260,32 @@ func failureReason(err error) string {
 	return genericFailureReason
 }
 
+// AbandonChat закрывает тренировку по воле пользователя. Очки не начисляются:
+// брошенный сценарий не пройден, а накопленный счёт чата остаётся для истории.
+func (s *Service) AbandonChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error) {
+	chat, err := s.ownedChat(ctx, chatID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := chat.Abandon(); err != nil {
+		return nil, err
+	}
+
+	closed, err := s.chats.Close(ctx, chat)
+	if err != nil {
+		return nil, err
+	}
+
+	if !closed {
+		return nil, chatdomain.ErrChatFinished
+	}
+
+	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
+
+	return chat, nil
+}
+
 func (s *Service) GetChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error) {
 	return s.ownedChat(ctx, chatID, userID)
 }
@@ -479,12 +505,12 @@ func (s *Service) finish(ctx context.Context, chat *chatdomain.Chat, resume stri
 		return err
 	}
 
-	finished, err := s.chats.Finish(ctx, chat)
+	closed, err := s.chats.Close(ctx, chat)
 	if err != nil {
 		return err
 	}
 
-	if !finished {
+	if !closed {
 		return chatdomain.ErrChatFinished
 	}
 

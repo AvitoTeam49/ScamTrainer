@@ -26,8 +26,9 @@ VALUES (
 )
 RETURNING id;
 
--- Завершение идемпотентно: параллельный ход агента не сможет завершить чат дважды.
--- name: FinishChat :execrows
+-- Закрытие идемпотентно: чат переводится в терминальный статус (finished или abandoned)
+-- ровно один раз, поэтому параллельный ход агента не сможет закрыть его повторно.
+-- name: CloseChat :execrows
 UPDATE chats
 SET status = sqlc.arg(status),
     resume = sqlc.arg(resume),

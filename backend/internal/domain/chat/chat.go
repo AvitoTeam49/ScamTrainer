@@ -93,7 +93,8 @@ type ChatRepository interface {
 	GetByID(ctx context.Context, id int64) (*Chat, error)
 	ListByUserID(ctx context.Context, userID int64, cursor Cursor) ([]*Chat, error)
 	Create(ctx context.Context, chat *Chat) error
-	// Finish возвращает false, если чат уже был завершён другим ходом агента.
-	Finish(ctx context.Context, chat *Chat) (bool, error)
+	// Close сохраняет терминальный статус чата (finished или abandoned).
+	// Возвращает false, если чат уже был закрыт — например, параллельным ходом агента.
+	Close(ctx context.Context, chat *Chat) (bool, error)
 	Delete(ctx context.Context, id int64) error
 }

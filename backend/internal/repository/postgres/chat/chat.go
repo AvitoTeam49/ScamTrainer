@@ -76,8 +76,8 @@ func (r *ChatRepository) Create(ctx context.Context, chat *chatdomain.Chat) erro
 	return nil
 }
 
-func (r *ChatRepository) Finish(ctx context.Context, chat *chatdomain.Chat) (bool, error) {
-	affected, err := r.queries.FinishChat(ctx, sqlcChat.FinishChatParams{
+func (r *ChatRepository) Close(ctx context.Context, chat *chatdomain.Chat) (bool, error) {
+	affected, err := r.queries.CloseChat(ctx, sqlcChat.CloseChatParams{
 		ID:         chat.ID,
 		Status:     string(chat.Status),
 		Resume:     chat.Resume,
@@ -85,7 +85,7 @@ func (r *ChatRepository) Finish(ctx context.Context, chat *chatdomain.Chat) (boo
 		FinishedAt: chat.FinishedAt,
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to finish chat query: %w", err)
+		return false, fmt.Errorf("failed to close chat query: %w", err)
 	}
 
 	return affected > 0, nil

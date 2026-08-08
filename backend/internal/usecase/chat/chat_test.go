@@ -348,6 +348,49 @@ func TestRunAgentTurn_SerializesConcurrentTurnsOfSameChat(t *testing.T) {
 	}
 }
 
+func TestAbandonChat_ClosesChatWithoutAwardingScore(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.chats.chat.Score = 20
+
+	chat, err := fixture.service.AbandonChat(context.Background(), 1, 42)
+	if err != nil {
+		t.Fatalf("abandon chat: %v", err)
+	}
+
+	if chat.Status != chatdomain.ChatStatusAbandoned {
+		t.Fatalf("status: got %q, want %q", chat.Status, chatdomain.ChatStatusAbandoned)
+	}
+
+	if chat.FinishedAt == nil {
+		t.Fatal("abandoned chat must carry a finish timestamp")
+	}
+
+	if got := len(fixture.awards.calls); got != 0 {
+		t.Fatalf("awards: got %d, want none — брошенный сценарий не оценивается", got)
+	}
+
+	if got := fixture.events.types(); len(got) != 1 || got[0] != chatdomain.EventTypeChat {
+		t.Fatalf("events: got %v, want [chat]", got)
+	}
+}
+
+func TestAbandonChat_RejectsChatOfAnotherUser(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	if _, err := fixture.service.AbandonChat(context.Background(), 1, 999); !errors.Is(err, chatdomain.ErrChatAccessDenied) {
+		t.Fatalf("got %v, want %v", err, chatdomain.ErrChatAccessDenied)
+	}
+}
+
+func TestAbandonChat_RejectsAlreadyClosedChat(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.chats.chat.Status = chatdomain.ChatStatusFinished
+
+	if _, err := fixture.service.AbandonChat(context.Background(), 1, 42); !errors.Is(err, chatdomain.ErrChatFinished) {
+		t.Fatalf("got %v, want %v", err, chatdomain.ErrChatFinished)
+	}
+}
+
 func TestStartChat_DropsChatWhenOpeningMessageFails(t *testing.T) {
 	fixture := newFixture(t, "start")
 	fixture.messages.createErr = errors.New("storage is down")
@@ -590,7 +633,7 @@ func (f *fakeChatRepository) Create(_ context.Context, chat *chatdomain.Chat) er
 	return nil
 }
 
-func (f *fakeChatRepository) Finish(context.Context, *chatdomain.Chat) (bool, error) {
+func (f *fakeChatRepository) Close(context.Context, *chatdomain.Chat) (bool, error) {
 	f.finishes++
 
 	return f.finishes == 1, nil

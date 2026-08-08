@@ -10,6 +10,40 @@ import (
 	"time"
 )
 
+const closeChat = `-- name: CloseChat :execrows
+UPDATE chats
+SET status = $1,
+    resume = $2,
+    score = $3,
+    finished_at = $4
+WHERE id = $5
+  AND status = 'active'
+`
+
+type CloseChatParams struct {
+	Status     string     `json:"status"`
+	Resume     string     `json:"resume"`
+	Score      int64      `json:"score"`
+	FinishedAt *time.Time `json:"finished_at"`
+	ID         int64      `json:"id"`
+}
+
+// Закрытие идемпотентно: чат переводится в терминальный статус (finished или abandoned)
+// ровно один раз, поэтому параллельный ход агента не сможет закрыть его повторно.
+func (q *Queries) CloseChat(ctx context.Context, arg CloseChatParams) (int64, error) {
+	result, err := q.db.Exec(ctx, closeChat,
+		arg.Status,
+		arg.Resume,
+		arg.Score,
+		arg.FinishedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createChat = `-- name: CreateChat :one
 INSERT INTO chats (user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at)
 VALUES (
@@ -138,39 +172,6 @@ WHERE id = $1
 
 func (q *Queries) DeleteChat(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteChat, id)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const finishChat = `-- name: FinishChat :execrows
-UPDATE chats
-SET status = $1,
-    resume = $2,
-    score = $3,
-    finished_at = $4
-WHERE id = $5
-  AND status = 'active'
-`
-
-type FinishChatParams struct {
-	Status     string     `json:"status"`
-	Resume     string     `json:"resume"`
-	Score      int64      `json:"score"`
-	FinishedAt *time.Time `json:"finished_at"`
-	ID         int64      `json:"id"`
-}
-
-// Завершение идемпотентно: параллельный ход агента не сможет завершить чат дважды.
-func (q *Queries) FinishChat(ctx context.Context, arg FinishChatParams) (int64, error) {
-	result, err := q.db.Exec(ctx, finishChat,
-		arg.Status,
-		arg.Resume,
-		arg.Score,
-		arg.FinishedAt,
-		arg.ID,
-	)
 	if err != nil {
 		return 0, err
 	}
