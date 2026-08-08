@@ -15,9 +15,11 @@ const UserIDKey contextKey = "userID"
 func Auth(authService auth.AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
+			tokenStr, found := bearerToken(r)
+			if !found {
+				tokenStr, found = cookieToken(r)
+			}
 
-			tokenStr, found := strings.CutPrefix(authHeader, "Bearer ")
 			if !found || tokenStr == "" {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
@@ -42,4 +44,18 @@ func Auth(authService auth.AuthService) func(http.Handler) http.Handler {
 func GetUserIDFromContext(ctx context.Context) (int64, bool) {
 	userID, ok := ctx.Value(UserIDKey).(int64)
 	return userID, ok
+}
+
+func bearerToken(r *http.Request) (string, bool) {
+	return strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+}
+
+// EventSource не умеет отправлять заголовок Authorization, поэтому SSE авторизуется кукой.
+func cookieToken(r *http.Request) (string, bool) {
+	cookie, err := r.Cookie(auth.AccessTokenCookie)
+	if err != nil {
+		return "", false
+	}
+
+	return cookie.Value, cookie.Value != ""
 }

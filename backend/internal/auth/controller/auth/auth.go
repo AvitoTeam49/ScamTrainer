@@ -41,6 +41,20 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+const AccessTokenCookie = "access_token"
+
+func setAccessCookie(w http.ResponseWriter, accessToken string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     AccessTokenCookie,
+		Value:    accessToken,
+		Path:     "/",
+		MaxAge:   15 * 60,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 func (a *authHandler) respondJSON(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

@@ -41,6 +41,10 @@ type PostgresConfig struct {
 	DSN string
 }
 
+type AuthConfig struct {
+	JWTSecret []byte
+}
+
 type ScenariosConfig struct {
 	Dir string
 }
@@ -52,6 +56,7 @@ func (c ScenariosConfig) Enabled() bool {
 type Config struct {
 	HTTP      HTTPConfig
 	Postgres  PostgresConfig
+	Auth      AuthConfig
 	DeepSeek  DeepSeekConfig
 	Scenarios ScenariosConfig
 }
@@ -63,6 +68,11 @@ func Load() (*Config, error) {
 	}
 
 	postgres, err := loadPostgres()
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := loadAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -80,9 +90,19 @@ func Load() (*Config, error) {
 	return &Config{
 		HTTP:      httpConfig,
 		Postgres:  postgres,
+		Auth:      auth,
 		DeepSeek:  deepSeek,
 		Scenarios: scenarios,
 	}, nil
+}
+
+func loadAuth() (AuthConfig, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return AuthConfig{}, fmt.Errorf("%w: JWT_SECRET", ErrMissingEnv)
+	}
+
+	return AuthConfig{JWTSecret: []byte(secret)}, nil
 }
 
 func loadHTTP() (HTTPConfig, error) {

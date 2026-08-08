@@ -14,9 +14,9 @@ type ChatService interface {
 	StartChat(ctx context.Context, userID, scenarioID int64, title string) (*chatdomain.Chat, error)
 	SendMessage(ctx context.Context, chatID, userID int64, content string) (*chatdomain.Message, error)
 	RunAgentTurn(ctx context.Context, chatID int64) error
-	GetChat(ctx context.Context, chatID int64) (*chatdomain.Chat, error)
-	ListMessages(ctx context.Context, chatID int64, cursor chatdomain.Cursor) ([]*chatdomain.Message, error)
-	ListDecisions(ctx context.Context, chatID int64, cursor chatdomain.Cursor) ([]*chatdomain.Decision, error)
+	GetChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error)
+	ListMessages(ctx context.Context, chatID, userID int64, cursor chatdomain.Cursor) ([]*chatdomain.Message, error)
+	ListDecisions(ctx context.Context, chatID, userID int64, cursor chatdomain.Cursor) ([]*chatdomain.Decision, error)
 }
 
 type EventSubscriber interface {
@@ -69,13 +69,13 @@ func (h *Handler) startChat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getChat(w http.ResponseWriter, r *http.Request) {
-	chatID, err := pathID(r, "chatID")
+	chatID, userID, err := chatScope(r)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	chat, err := h.chats.GetChat(r.Context(), chatID)
+	chat, err := h.chats.GetChat(r.Context(), chatID, userID)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -85,13 +85,7 @@ func (h *Handler) getChat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
-	chatID, err := pathID(r, "chatID")
-	if err != nil {
-		writeError(w, r, err)
-		return
-	}
-
-	userID, err := requestUserID(r)
+	chatID, userID, err := chatScope(r)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -125,7 +119,7 @@ func (h *Handler) startAgentTurn(r *http.Request, chatID int64) {
 }
 
 func (h *Handler) listMessages(w http.ResponseWriter, r *http.Request) {
-	chatID, err := pathID(r, "chatID")
+	chatID, userID, err := chatScope(r)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -137,7 +131,7 @@ func (h *Handler) listMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := h.chats.ListMessages(r.Context(), chatID, cursor)
+	messages, err := h.chats.ListMessages(r.Context(), chatID, userID, cursor)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -147,7 +141,7 @@ func (h *Handler) listMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listDecisions(w http.ResponseWriter, r *http.Request) {
-	chatID, err := pathID(r, "chatID")
+	chatID, userID, err := chatScope(r)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -159,7 +153,7 @@ func (h *Handler) listDecisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	decisions, err := h.chats.ListDecisions(r.Context(), chatID, cursor)
+	decisions, err := h.chats.ListDecisions(r.Context(), chatID, userID, cursor)
 	if err != nil {
 		writeError(w, r, err)
 		return

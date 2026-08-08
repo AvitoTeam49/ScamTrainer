@@ -30,9 +30,11 @@ type authService struct {
 	jwtSecret      []byte
 }
 
-func NewAuthService(authRepository authRepository) *authService {
+func NewAuthService(authRepository authRepository, logger *zap.Logger, jwtSecret []byte) *authService {
 	return &authService{
 		authRepository: authRepository,
+		logger:         logger,
+		jwtSecret:      jwtSecret,
 	}
 }
 

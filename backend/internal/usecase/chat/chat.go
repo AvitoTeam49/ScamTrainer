@@ -91,13 +91,9 @@ func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content
 		return nil, chatdomain.ErrMessageEmpty
 	}
 
-	chat, err := s.chats.GetByID(ctx, chatID)
+	chat, err := s.ownedChat(ctx, chatID, userID)
 	if err != nil {
 		return nil, err
-	}
-
-	if chat.UserID != userID {
-		return nil, chatdomain.ErrChatAccessDenied
 	}
 
 	if !chat.IsActive() {
@@ -196,16 +192,16 @@ func failureReason(err error) string {
 	return genericFailureReason
 }
 
-func (s *Service) GetChat(ctx context.Context, chatID int64) (*chatdomain.Chat, error) {
-	return s.chats.GetByID(ctx, chatID)
+func (s *Service) GetChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error) {
+	return s.ownedChat(ctx, chatID, userID)
 }
 
 func (s *Service) ListMessages(
 	ctx context.Context,
-	chatID int64,
+	chatID, userID int64,
 	cursor chatdomain.Cursor,
 ) ([]*chatdomain.Message, error) {
-	if _, err := s.chats.GetByID(ctx, chatID); err != nil {
+	if _, err := s.ownedChat(ctx, chatID, userID); err != nil {
 		return nil, err
 	}
 
@@ -214,14 +210,27 @@ func (s *Service) ListMessages(
 
 func (s *Service) ListDecisions(
 	ctx context.Context,
-	chatID int64,
+	chatID, userID int64,
 	cursor chatdomain.Cursor,
 ) ([]*chatdomain.Decision, error) {
-	if _, err := s.chats.GetByID(ctx, chatID); err != nil {
+	if _, err := s.ownedChat(ctx, chatID, userID); err != nil {
 		return nil, err
 	}
 
 	return s.decisions.ListByChatID(ctx, chatID, cursor)
+}
+
+func (s *Service) ownedChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error) {
+	chat, err := s.chats.GetByID(ctx, chatID)
+	if err != nil {
+		return nil, err
+	}
+
+	if chat.UserID != userID {
+		return nil, chatdomain.ErrChatAccessDenied
+	}
+
+	return chat, nil
 }
 
 func (s *Service) runAgent(

@@ -12,8 +12,12 @@ import (
 	"time"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent/deepseek"
+	authrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/controller"
+	authpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/repository"
+	authusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/usecase/auth"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/config"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/eventbus"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/middleware"
 	chatpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/chat"
 	userspostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/users"
 	scenarioyaml "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/yaml/scenario"
@@ -70,6 +74,16 @@ func run() error {
 	}
 
 	mux := http.NewServeMux()
+	protected := http.NewServeMux()
+
+	authService := authusecase.NewAuthService(
+		authpostgres.NewPostgresRepository(pool),
+		logger,
+		cfg.Auth.JWTSecret,
+	)
+	authrest.New(authService, logger).Register(mux)
+
+	mux.Handle("/v1/", middleware.Auth(authService)(protected))
 
 	bus := eventbus.New(0)
 
@@ -88,10 +102,10 @@ func run() error {
 		}),
 		chatusecase.Options{},
 	)
-	chatrest.NewHandler(chatService, bus).Register(mux)
+	chatrest.NewHandler(chatService, bus).Register(protected)
 
 	usersService := usersusecase.NewUserService(userspostgres.NewPostgresRepository(pool), logger)
-	usersrest.New(usersService, logger).Register(mux)
+	usersrest.New(usersService, logger).Register(protected)
 
 	server := &http.Server{
 		Addr:    cfg.HTTP.Addr,

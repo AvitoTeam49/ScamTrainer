@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/middleware"
 )
 
 const (
@@ -16,7 +17,10 @@ const (
 	maxLimit     = 100
 )
 
-var errInvalidRequest = errors.New("invalid request")
+var (
+	errInvalidRequest = errors.New("invalid request")
+	errUnauthorized   = errors.New("unauthorized")
+)
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -29,6 +33,8 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, errUnauthorized):
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: err.Error()})
 	case errors.Is(err, chatdomain.ErrChatNotFound), errors.Is(err, chatdomain.ErrScenarioNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: err.Error()})
 	case errors.Is(err, chatdomain.ErrChatAccessDenied):
@@ -62,19 +68,24 @@ func pathID(r *http.Request, name string) (int64, error) {
 	return id, nil
 }
 
+func chatScope(r *http.Request) (chatID, userID int64, err error) {
+	chatID, err = pathID(r, "chatID")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	userID, err = requestUserID(r)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return chatID, userID, nil
+}
+
 func requestUserID(r *http.Request) (int64, error) {
-	raw := r.Header.Get("X-User-ID")
-	if raw == "" {
-		raw = r.URL.Query().Get("user_id")
-	}
-
-	if raw == "" {
-		return 0, fmt.Errorf("%w: X-User-ID header or user_id query param is required", errInvalidRequest)
-	}
-
-	userID, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || userID <= 0 {
-		return 0, fmt.Errorf("%w: user_id must be a positive integer", errInvalidRequest)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok || userID <= 0 {
+		return 0, errUnauthorized
 	}
 
 	return userID, nil

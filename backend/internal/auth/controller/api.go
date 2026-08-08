@@ -25,3 +25,10 @@ func New(authService auth.AuthService, logger *zap.Logger) *API {
 		logger:     logger,
 	}
 }
+
+func (a *API) Register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/auth/register", a.authServer.Register)
+	mux.HandleFunc("POST /v1/auth/login", a.authServer.Login)
+	mux.HandleFunc("POST /v1/auth/validate", a.authServer.ValidateToken)
+	mux.HandleFunc("POST /v1/auth/refresh", a.authServer.RefreshToken)
+}

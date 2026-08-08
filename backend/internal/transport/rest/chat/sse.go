@@ -11,13 +11,13 @@ import (
 const keepAliveInterval = 20 * time.Second
 
 func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request) {
-	chatID, err := pathID(r, "chatID")
+	chatID, userID, err := chatScope(r)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	if _, err := h.chats.GetChat(r.Context(), chatID); err != nil {
+	if _, err := h.chats.GetChat(r.Context(), chatID, userID); err != nil {
 		writeError(w, r, err)
 		return
 	}
