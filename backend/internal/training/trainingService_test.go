@@ -19,12 +19,12 @@ func (g fixedIDGenerator) NewID() string {
 type scenarioRepositoryStub struct {
 	scenario    *scenario.Scenario
 	err         error
-	requestedID string
+	requestedID int
 }
 
 func (r *scenarioRepositoryStub) GetById(
 	_ context.Context,
-	id string,
+	id int,
 ) (*scenario.Scenario, error) {
 	r.requestedID = id
 
@@ -55,8 +55,8 @@ func TestTrainingService_Start(t *testing.T) {
 
 	result, err := service.Start(
 		ctx,
-		"user-1",
-		"scenario-1",
+		42,
+		1,
 	)
 	if err != nil {
 		t.Fatalf("Start() error = %v", err)
@@ -66,11 +66,11 @@ func TestTrainingService_Start(t *testing.T) {
 		t.Fatal("Start() result = nil")
 	}
 
-	if scenarioRepository.requestedID != "scenario-1" {
+	if scenarioRepository.requestedID != 1 {
 		t.Errorf(
-			"requested scenario ID = %q, want %q",
+			"requested scenario ID = %d, want %d",
 			scenarioRepository.requestedID,
-			"scenario-1",
+			1,
 		)
 	}
 
@@ -84,19 +84,19 @@ func TestTrainingService_Start(t *testing.T) {
 		)
 	}
 
-	if session.UserID != "user-1" {
+	if session.UserID != 42 {
 		t.Errorf(
-			"UserID = %q, want %q",
+			"UserID = %d, want %d",
 			session.UserID,
-			"user-1",
+			42,
 		)
 	}
 
-	if session.ScenarioID != "scenario-1" {
+	if session.ScenarioID != 1 {
 		t.Errorf(
-			"ScenarioID = %q, want %q",
+			"ScenarioID = %d, want %d",
 			session.ScenarioID,
-			"scenario-1",
+			1,
 		)
 	}
 
@@ -153,8 +153,8 @@ func TestTrainingService_StartReturnsScenarioError(
 
 	result, err := service.Start(
 		context.Background(),
-		"user-1",
-		"missing-scenario",
+		42,
+		999,
 	)
 
 	if result != nil {
@@ -182,7 +182,7 @@ func TestTrainingService_StartReturnsDuplicateSessionError(
 	existing := engine.Start(
 		trainingScenario,
 		"session-1",
-		"existing-user",
+		42,
 	)
 
 	if err := sessionRepository.Create(
@@ -203,7 +203,7 @@ func TestTrainingService_StartReturnsDuplicateSessionError(
 
 	result, err := service.Start(
 		ctx,
-		"user-1",
+		100,
 		trainingScenario.ID,
 	)
 
@@ -222,7 +222,7 @@ func TestTrainingService_StartReturnsDuplicateSessionError(
 
 func newServiceTestScenario() *scenario.Scenario {
 	return &scenario.Scenario{
-		ID:          "scenario-1",
+		ID:          1,
 		Title:       "Test scenario",
 		Role:        scenario.RoleSeller,
 		StartNodeID: "start",
@@ -241,7 +241,7 @@ func newServiceTestScenario() *scenario.Scenario {
 
 func newApplyChoiceTestScenario() *scenario.Scenario {
 	return &scenario.Scenario{
-		ID:          "scenario-1",
+		ID:          1,
 		Title:       "Test scenario",
 		Role:        scenario.RoleSeller,
 		StartNodeID: "start",
@@ -298,7 +298,7 @@ func TestTrainingService_ApplyChoice(t *testing.T) {
 	session := engine.Start(
 		trainingScenario,
 		"session-1",
-		"user-1",
+		42,
 	)
 
 	if err := sessionRepository.Create(
@@ -420,7 +420,7 @@ func TestTrainingService_ApplyChoiceReturnsTransitionError(
 	session := engine.Start(
 		trainingScenario,
 		"session-1",
-		"user-1",
+		42,
 	)
 
 	if err := sessionRepository.Create(

@@ -40,7 +40,7 @@ func TestValidate_InvalidScenarios(t *testing.T) {
 		{
 			name: "empty scenario id",
 			prepare: func(s *Scenario) {
-				s.ID = ""
+				s.ID = 0
 			},
 			wantErrorPart: "id",
 		},
@@ -200,7 +200,7 @@ func TestValidate_InvalidScenarios(t *testing.T) {
 
 func newValidScenario() *Scenario {
 	return &Scenario{
-		ID:          "test_scenario",
+		ID:          1,
 		Title:       "Test scenario",
 		Role:        RoleSeller,
 		Difficulty:  DifficultyEasy,

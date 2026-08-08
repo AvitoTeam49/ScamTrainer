@@ -29,20 +29,24 @@ func NewService(
 }
 
 type StartResult struct {
-	Session *scenario.TrainingSession
-	Node    *scenario.Node
+	Session         *scenario.TrainingSession
+	Node            *scenario.Node
+	CharacterPrompt string
 }
 
 type TurnResult struct {
-	Session  *scenario.TrainingSession
-	Node     *scenario.Node
-	Decision *scenario.Decision
+	Session   *scenario.TrainingSession
+	Node      *scenario.Node
+	Decision  *scenario.Decision
+	Completed bool
 }
 
+// Создать новую сессию, получить начальную ноду(и промпты в ней, переходы из нее),
+// забрать character_prompt всего сценария
 func (s *TrainingService) Start(
 	ctx context.Context,
-	userID string,
-	scenarioID string,
+	userID int64,
+	scenarioID int,
 ) (*StartResult, error) {
 	trainingScenario, err := s.scenarios.GetById(
 		ctx,
@@ -50,7 +54,7 @@ func (s *TrainingService) Start(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"get scenario %q: %w",
+			"get scenario %d: %w",
 			scenarioID,
 			err,
 		)
@@ -59,7 +63,7 @@ func (s *TrainingService) Start(
 	startNode, exists := trainingScenario.Nodes[trainingScenario.StartNodeID]
 	if !exists {
 		return nil, fmt.Errorf(
-			"start node %q not found in scenario %q",
+			"start node %q not found in scenario %d",
 			trainingScenario.StartNodeID,
 			trainingScenario.ID,
 		)
@@ -79,11 +83,14 @@ func (s *TrainingService) Start(
 	}
 
 	return &StartResult{
-		Session: session,
-		Node:    startNode,
+		Session:         session,
+		Node:            startNode,
+		CharacterPrompt: trainingScenario.LLM.CharacterPrompt,
 	}, nil
 }
 
+// Получить выбранный transition, продвинуть сценарий по графу,
+// получить новую ноду и данные по результам перехода(Decision)
 func (s *TrainingService) ApplyChoice(
 	ctx context.Context,
 	sessionID string,
@@ -107,7 +114,7 @@ func (s *TrainingService) ApplyChoice(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"get scenario %q: %w",
+			"get scenario %d: %w",
 			session.ScenarioID,
 			err,
 		)
@@ -145,8 +152,9 @@ func (s *TrainingService) ApplyChoice(
 	}
 
 	return &TurnResult{
-		Session:  session,
-		Node:     node,
-		Decision: decision,
+		Session:   session,
+		Node:      node,
+		Decision:  decision,
+		Completed: session.CompletedAt != nil,
 	}, nil
 }

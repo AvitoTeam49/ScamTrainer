@@ -379,8 +379,8 @@ func newTestSession(
 
 	return &scenario.TrainingSession{
 		ID:            id,
-		UserID:        "user-1",
-		ScenarioID:    "seller-fake-delivery",
+		UserID:        42,
+		ScenarioID:    1,
 		CurrentNodeID: "start",
 		Status:        scenario.SessionStatusInProgress,
 		Score:         0,
