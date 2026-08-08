@@ -10,6 +10,7 @@ import (
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent"
 	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
 	scenariodomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/scenario"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/training"
 )
 
 const (
@@ -32,8 +33,9 @@ type Service struct {
 	messages      chatdomain.MessageRepository
 	decisions     chatdomain.DecisionRepository
 	scenarios     scenariodomain.ScenarioRepository
+	sessions      training.SessionRepository
 	events        EventPublisher
-	engine        *scenariodomain.Engine
+	training      *training.TrainingService
 	agent         agent.Agent
 	historyLimit  int
 	maxToolRounds int
@@ -44,6 +46,8 @@ func New(
 	messages chatdomain.MessageRepository,
 	decisions chatdomain.DecisionRepository,
 	scenarios scenariodomain.ScenarioRepository,
+	sessions training.SessionRepository,
+	trainingService *training.TrainingService,
 	events EventPublisher,
 	chatAgent agent.Agent,
 	options Options,
@@ -60,8 +64,9 @@ func New(
 		messages:      messages,
 		decisions:     decisions,
 		scenarios:     scenarios,
+		sessions:      sessions,
 		events:        events,
-		engine:        scenariodomain.NewEngine(),
+		training:      trainingService,
 		agent:         chatAgent,
 		historyLimit:  options.HistoryLimit,
 		maxToolRounds: options.MaxToolRounds,
@@ -74,16 +79,46 @@ func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title
 		return nil, err
 	}
 
+	started, err := s.training.Start(ctx, userID, scenario.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	if strings.TrimSpace(title) == "" {
 		title = scenario.Title
 	}
 
-	chat := chatdomain.NewChat(userID, scenarioID, title, scenario.StartNodeID)
+	chat := chatdomain.NewChat(userID, scenarioID, started.Session.ID, title, started.Session.CurrentNodeID)
 	if err := s.chats.Create(ctx, chat); err != nil {
 		return nil, err
 	}
 
+	if err := s.openingMessage(ctx, chat, started.Node); err != nil {
+		return nil, err
+	}
+
 	return chat, nil
+}
+
+// Первая реплика берётся из самого сценария, поэтому пользователь сразу видит завязку.
+func (s *Service) openingMessage(ctx context.Context, chat *chatdomain.Chat, node *scenariodomain.Node) error {
+	text := strings.TrimSpace(node.Message.Text)
+	if text == "" {
+		return nil
+	}
+
+	message := &chatdomain.Message{
+		ChatID:     chat.ID,
+		SenderType: chatdomain.SenderTypeAgent,
+		Content:    text,
+	}
+	if err := s.messages.Create(ctx, message); err != nil {
+		return err
+	}
+
+	s.events.Publish(ctx, chatdomain.MessageEvent(message))
+
+	return nil
 }
 
 func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content string) (*chatdomain.Message, error) {
@@ -317,12 +352,20 @@ func (s *Service) applyTransition(
 		return toolFailure(agent.ErrToolCallInvalid), nil
 	}
 
-	session := sessionFrom(scenario, chat)
-
-	decision, err := s.engine.ApplyChoice(scenario, session, payload.TransitionID)
-	if err != nil {
-		return toolFailure(err), nil
+	if err := s.restoreSession(ctx, chat); err != nil {
+		return "", err
 	}
+
+	turn, err := s.training.ApplyChoice(ctx, chat.SessionID, payload.TransitionID)
+	if err != nil {
+		if isChoiceRejected(err) {
+			return toolFailure(err), nil
+		}
+
+		return "", err
+	}
+
+	decision := turn.Decision
 
 	if err := chat.ApplyDecision(decision.ScoreDelta, decision.TargetNodeID); err != nil {
 		return toolFailure(err), nil
@@ -342,7 +385,7 @@ func (s *Service) applyTransition(
 
 	s.events.Publish(ctx, chatdomain.DecisionEvent(stored))
 
-	if session.Status != scenariodomain.SessionStatusCompleted {
+	if !turn.Completed {
 		s.events.Publish(ctx, chatdomain.ChatEvent(chat))
 
 		return fmt.Sprintf(
@@ -352,15 +395,9 @@ func (s *Service) applyTransition(
 		), nil
 	}
 
-	if err := chat.Finish(endingResume(scenario, decision.TargetNodeID, decision.Feedback)); err != nil {
-		return toolFailure(err), nil
-	}
-
-	if err := s.chats.Update(ctx, chat); err != nil {
+	if err := s.finish(ctx, chat, endingResume(scenario, decision.TargetNodeID, decision.Feedback)); err != nil {
 		return "", err
 	}
-
-	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
 
 	return fmt.Sprintf("scenario completed with score %d", chat.Score), nil
 }
@@ -373,25 +410,81 @@ func (s *Service) finishChat(ctx context.Context, chat *chatdomain.Chat, argumen
 		return toolFailure(agent.ErrToolCallInvalid), nil
 	}
 
-	if err := chat.Finish(payload.Resume); err != nil {
-		return toolFailure(err), nil
-	}
-
-	if err := s.chats.Update(ctx, chat); err != nil {
+	if err := s.finish(ctx, chat, payload.Resume); err != nil {
 		return "", err
 	}
-
-	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
 
 	return fmt.Sprintf("chat finished with score %d", chat.Score), nil
 }
 
-func sessionFrom(scenario *scenariodomain.Scenario, chat *chatdomain.Chat) *scenariodomain.TrainingSession {
+// finish завершает чат ровно один раз: параллельный ход агента получит false и уйдёт без событий.
+func (s *Service) finish(ctx context.Context, chat *chatdomain.Chat, resume string) error {
+	if err := chat.Finish(resume); err != nil {
+		return err
+	}
+
+	finished, err := s.chats.Finish(ctx, chat)
+	if err != nil {
+		return err
+	}
+
+	if !finished {
+		return chatdomain.ErrChatFinished
+	}
+
+	s.events.Publish(ctx, chatdomain.ChatEvent(chat))
+
+	return nil
+}
+
+// Сессии тренировки живут в памяти, поэтому после рестарта их восстанавливаем из строки чата.
+func (s *Service) restoreSession(ctx context.Context, chat *chatdomain.Chat) error {
+	_, err := s.sessions.GetById(ctx, chat.SessionID)
+	if err == nil {
+		return nil
+	}
+
+	if !errors.Is(err, training.ErrSessionNotFound) {
+		return err
+	}
+
+	return s.sessions.Create(ctx, sessionFrom(chat))
+}
+
+func isChoiceRejected(err error) bool {
+	rejections := []error{
+		scenariodomain.ErrSessionCompleted,
+		scenariodomain.ErrScenarioMismatch,
+		scenariodomain.ErrCurrentNodeNotFound,
+		scenariodomain.ErrTransitionNotAvailable,
+		scenariodomain.ErrTargetNodeNotFound,
+	}
+
+	for _, rejection := range rejections {
+		if errors.Is(err, rejection) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func sessionFrom(chat *chatdomain.Chat) *scenariodomain.TrainingSession {
+	status := scenariodomain.SessionStatusInProgress
+	if !chat.IsActive() {
+		status = scenariodomain.SessionStatusCompleted
+	}
+
 	return &scenariodomain.TrainingSession{
-		ScenarioID:    scenario.ID,
+		ID:            chat.SessionID,
+		UserID:        chat.UserID,
+		ScenarioID:    int(chat.ScenarioID),
 		CurrentNodeID: chat.CurrentNodeID,
-		Status:        scenariodomain.SessionStatusInProgress,
+		Status:        status,
 		Score:         int(chat.Score),
+		StartedAt:     chat.CreatedAt,
+		UpdatedAt:     chat.CreatedAt,
+		CompletedAt:   chat.FinishedAt,
 	}
 }
 

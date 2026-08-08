@@ -56,6 +56,7 @@ func (r *ChatRepository) Create(ctx context.Context, chat *chatdomain.Chat) erro
 	id, err := r.queries.CreateChat(ctx, sqlcChat.CreateChatParams{
 		UserID:        chat.UserID,
 		ScenarioID:    chat.ScenarioID,
+		SessionID:     chat.SessionID,
 		Title:         chat.Title,
 		Status:        string(chat.Status),
 		Resume:        chat.Resume,
@@ -72,25 +73,19 @@ func (r *ChatRepository) Create(ctx context.Context, chat *chatdomain.Chat) erro
 	return nil
 }
 
-func (r *ChatRepository) Update(ctx context.Context, chat *chatdomain.Chat) error {
-	affected, err := r.queries.UpdateChat(ctx, sqlcChat.UpdateChatParams{
-		ID:            chat.ID,
-		Title:         chat.Title,
-		Status:        string(chat.Status),
-		Resume:        chat.Resume,
-		Score:         chat.Score,
-		CurrentNodeID: chat.CurrentNodeID,
-		FinishedAt:    chat.FinishedAt,
+func (r *ChatRepository) Finish(ctx context.Context, chat *chatdomain.Chat) (bool, error) {
+	affected, err := r.queries.FinishChat(ctx, sqlcChat.FinishChatParams{
+		ID:         chat.ID,
+		Status:     string(chat.Status),
+		Resume:     chat.Resume,
+		Score:      chat.Score,
+		FinishedAt: chat.FinishedAt,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to update chat query: %w", err)
+		return false, fmt.Errorf("failed to finish chat query: %w", err)
 	}
 
-	if affected == 0 {
-		return chatdomain.ErrChatNotFound
-	}
-
-	return nil
+	return affected > 0, nil
 }
 
 func (r *ChatRepository) Delete(ctx context.Context, id int64) error {
@@ -111,6 +106,7 @@ func chatFromRow(row sqlcChat.Chat) *chatdomain.Chat {
 		ID:            row.ID,
 		UserID:        row.UserID,
 		ScenarioID:    row.ScenarioID,
+		SessionID:     row.SessionID,
 		Title:         row.Title,
 		Status:        chatdomain.ChatStatus(row.Status),
 		Resume:        row.Resume,

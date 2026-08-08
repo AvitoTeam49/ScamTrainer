@@ -11,7 +11,7 @@ import (
 )
 
 const createChat = `-- name: CreateChat :one
-INSERT INTO chats (user_id, scenario_id, title, status, resume, score, current_node_id, created_at)
+INSERT INTO chats (user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at)
 VALUES (
     $1,
     $2,
@@ -20,7 +20,8 @@ VALUES (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING id
 `
@@ -28,6 +29,7 @@ RETURNING id
 type CreateChatParams struct {
 	UserID        int64     `json:"user_id"`
 	ScenarioID    int64     `json:"scenario_id"`
+	SessionID     string    `json:"session_id"`
 	Title         string    `json:"title"`
 	Status        string    `json:"status"`
 	Resume        string    `json:"resume"`
@@ -40,6 +42,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (int64, 
 	row := q.db.QueryRow(ctx, createChat,
 		arg.UserID,
 		arg.ScenarioID,
+		arg.SessionID,
 		arg.Title,
 		arg.Status,
 		arg.Resume,
@@ -141,8 +144,41 @@ func (q *Queries) DeleteChat(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const finishChat = `-- name: FinishChat :execrows
+UPDATE chats
+SET status = $1,
+    resume = $2,
+    score = $3,
+    finished_at = $4
+WHERE id = $5
+  AND status = 'active'
+`
+
+type FinishChatParams struct {
+	Status     string     `json:"status"`
+	Resume     string     `json:"resume"`
+	Score      int64      `json:"score"`
+	FinishedAt *time.Time `json:"finished_at"`
+	ID         int64      `json:"id"`
+}
+
+// Завершение идемпотентно: параллельный ход агента не сможет завершить чат дважды.
+func (q *Queries) FinishChat(ctx context.Context, arg FinishChatParams) (int64, error) {
+	result, err := q.db.Exec(ctx, finishChat,
+		arg.Status,
+		arg.Resume,
+		arg.Score,
+		arg.FinishedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getChatByID = `-- name: GetChatByID :one
-SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
+SELECT id, user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE id = $1
 `
@@ -154,6 +190,7 @@ func (q *Queries) GetChatByID(ctx context.Context, id int64) (Chat, error) {
 		&i.ID,
 		&i.UserID,
 		&i.ScenarioID,
+		&i.SessionID,
 		&i.Title,
 		&i.Status,
 		&i.Resume,
@@ -166,7 +203,7 @@ func (q *Queries) GetChatByID(ctx context.Context, id int64) (Chat, error) {
 }
 
 const listChatsByUserID = `-- name: ListChatsByUserID :many
-SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
+SELECT id, user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE user_id = $1
   AND ($2::bigint = 0 OR id < $2::bigint)
@@ -193,6 +230,7 @@ func (q *Queries) ListChatsByUserID(ctx context.Context, arg ListChatsByUserIDPa
 			&i.ID,
 			&i.UserID,
 			&i.ScenarioID,
+			&i.SessionID,
 			&i.Title,
 			&i.Status,
 			&i.Resume,
@@ -294,41 +332,4 @@ func (q *Queries) ListMessagesByChatID(ctx context.Context, arg ListMessagesByCh
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateChat = `-- name: UpdateChat :execrows
-UPDATE chats
-SET title = $1,
-    status = $2,
-    resume = $3,
-    score = $4,
-    current_node_id = $5,
-    finished_at = $6
-WHERE id = $7
-`
-
-type UpdateChatParams struct {
-	Title         string     `json:"title"`
-	Status        string     `json:"status"`
-	Resume        string     `json:"resume"`
-	Score         int64      `json:"score"`
-	CurrentNodeID string     `json:"current_node_id"`
-	FinishedAt    *time.Time `json:"finished_at"`
-	ID            int64      `json:"id"`
-}
-
-func (q *Queries) UpdateChat(ctx context.Context, arg UpdateChatParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateChat,
-		arg.Title,
-		arg.Status,
-		arg.Resume,
-		arg.Score,
-		arg.CurrentNodeID,
-		arg.FinishedAt,
-		arg.ID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }

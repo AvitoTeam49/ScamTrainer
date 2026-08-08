@@ -26,6 +26,7 @@ type Chat struct {
 	ID            int64
 	UserID        int64
 	ScenarioID    int64
+	SessionID     string
 	Title         string
 	Status        ChatStatus
 	Resume        string
@@ -35,10 +36,11 @@ type Chat struct {
 	FinishedAt    *time.Time
 }
 
-func NewChat(userID, scenarioID int64, title, startNodeID string) *Chat {
+func NewChat(userID, scenarioID int64, sessionID, title, startNodeID string) *Chat {
 	return &Chat{
 		UserID:        userID,
 		ScenarioID:    scenarioID,
+		SessionID:     sessionID,
 		Title:         title,
 		Status:        ChatStatusActive,
 		Score:         0,
@@ -91,6 +93,7 @@ type ChatRepository interface {
 	GetByID(ctx context.Context, id int64) (*Chat, error)
 	ListByUserID(ctx context.Context, userID int64, cursor Cursor) ([]*Chat, error)
 	Create(ctx context.Context, chat *Chat) error
-	Update(ctx context.Context, chat *Chat) error
+	// Finish возвращает false, если чат уже был завершён другим ходом агента.
+	Finish(ctx context.Context, chat *Chat) (bool, error)
 	Delete(ctx context.Context, id int64) error
 }

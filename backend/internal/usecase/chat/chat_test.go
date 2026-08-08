@@ -10,6 +10,7 @@ import (
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent"
 	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
 	scenariodomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/scenario"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/training"
 )
 
 func TestSendMessage_StoresAndPublishesUserMessageWithoutCallingAgent(t *testing.T) {
@@ -233,6 +234,7 @@ type fixture struct {
 	decisions *fakeDecisionRepository
 	events    *fakeEventPublisher
 	agent     *fakeAgent
+	sessions  *training.InMemorySessionRepository
 }
 
 func newFixture(t *testing.T, currentNodeID string) *fixture {
@@ -242,6 +244,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 		ID:            1,
 		UserID:        42,
 		ScenarioID:    7,
+		SessionID:     "session-1",
 		Status:        chatdomain.ChatStatusActive,
 		Score:         0,
 		CurrentNodeID: currentNodeID,
@@ -249,13 +252,17 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 	decisions := &fakeDecisionRepository{}
 	events := &fakeEventPublisher{}
 	chatAgent := &fakeAgent{}
+	scenarios := &fakeScenarioSource{scenario: testScenario()}
+	sessions := training.NewInMemorySessionRepository()
 
 	return &fixture{
 		service: New(
 			chats,
 			&fakeMessageRepository{},
 			decisions,
-			&fakeScenarioSource{scenario: testScenario()},
+			scenarios,
+			sessions,
+			training.NewService(scenarios, sessions, scenariodomain.NewEngine(), training.UUIDGenerator{}),
 			events,
 			chatAgent,
 			Options{},
@@ -264,6 +271,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 		decisions: decisions,
 		events:    events,
 		agent:     chatAgent,
+		sessions:  sessions,
 	}
 }
 
@@ -366,7 +374,8 @@ func (f *fakeEventPublisher) types() []chatdomain.EventType {
 }
 
 type fakeChatRepository struct {
-	chat *chatdomain.Chat
+	chat     *chatdomain.Chat
+	finishes int
 }
 
 func (f *fakeChatRepository) GetByID(context.Context, int64) (*chatdomain.Chat, error) {
@@ -384,8 +393,13 @@ func (f *fakeChatRepository) Create(_ context.Context, chat *chatdomain.Chat) er
 	return nil
 }
 
-func (f *fakeChatRepository) Update(context.Context, *chatdomain.Chat) error { return nil }
-func (f *fakeChatRepository) Delete(context.Context, int64) error            { return nil }
+func (f *fakeChatRepository) Finish(context.Context, *chatdomain.Chat) (bool, error) {
+	f.finishes++
+
+	return f.finishes == 1, nil
+}
+
+func (f *fakeChatRepository) Delete(context.Context, int64) error { return nil }
 
 type fakeMessageRepository struct {
 	created []*chatdomain.Message

@@ -1,10 +1,10 @@
 -- name: GetChatByID :one
-SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
+SELECT id, user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE id = sqlc.arg(id);
 
 -- name: ListChatsByUserID :many
-SELECT id, user_id, scenario_id, title, status, resume, score, current_node_id, created_at, finished_at
+SELECT id, user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at, finished_at
 FROM chats
 WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.arg(after_id)::bigint = 0 OR id < sqlc.arg(after_id)::bigint)
@@ -12,10 +12,11 @@ ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
 -- name: CreateChat :one
-INSERT INTO chats (user_id, scenario_id, title, status, resume, score, current_node_id, created_at)
+INSERT INTO chats (user_id, scenario_id, session_id, title, status, resume, score, current_node_id, created_at)
 VALUES (
     sqlc.arg(user_id),
     sqlc.arg(scenario_id),
+    sqlc.arg(session_id),
     sqlc.arg(title),
     sqlc.arg(status),
     sqlc.arg(resume),
@@ -25,15 +26,15 @@ VALUES (
 )
 RETURNING id;
 
--- name: UpdateChat :execrows
+-- Завершение идемпотентно: параллельный ход агента не сможет завершить чат дважды.
+-- name: FinishChat :execrows
 UPDATE chats
-SET title = sqlc.arg(title),
-    status = sqlc.arg(status),
+SET status = sqlc.arg(status),
     resume = sqlc.arg(resume),
     score = sqlc.arg(score),
-    current_node_id = sqlc.arg(current_node_id),
     finished_at = sqlc.narg(finished_at)
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id)
+  AND status = 'active';
 
 -- name: DeleteChat :execrows
 DELETE FROM chats

@@ -12,6 +12,7 @@ type Chat struct {
 	ID            int64      `json:"id"`
 	UserID        int64      `json:"user_id"`
 	ScenarioID    int64      `json:"scenario_id"`
+	SessionID     string     `json:"session_id"`
 	Title         string     `json:"title"`
 	Status        string     `json:"status"`
 	Resume        string     `json:"resume"`

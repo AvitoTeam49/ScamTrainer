@@ -16,11 +16,13 @@ import (
 	authpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/repository"
 	authusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/auth/usecase/auth"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/config"
+	scenariodomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/scenario"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/eventbus"
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/middleware"
 	chatpostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/chat"
 	userspostgres "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/users"
 	scenarioyaml "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/yaml/scenario"
+	"github.com/AvitoTeam49/ScamTrainer/backend/internal/training"
 	chatrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/chat"
 	usersrest "github.com/AvitoTeam49/ScamTrainer/backend/internal/transport/rest/users"
 	chatusecase "github.com/AvitoTeam49/ScamTrainer/backend/internal/usecase/chat"
@@ -87,11 +89,21 @@ func run() error {
 
 	bus := eventbus.New(0)
 
+	sessions := training.NewInMemorySessionRepository()
+	trainingService := training.NewService(
+		scenarios,
+		sessions,
+		scenariodomain.NewEngine(),
+		training.UUIDGenerator{},
+	)
+
 	chatService := chatusecase.New(
 		chatpostgres.NewChatRepository(pool),
 		chatpostgres.NewMessageRepository(pool),
 		chatpostgres.NewDecisionRepository(pool),
 		scenarios,
+		sessions,
+		trainingService,
 		bus,
 		deepseek.New(deepseek.Config{
 			BaseURL:    cfg.DeepSeek.BaseURL,
