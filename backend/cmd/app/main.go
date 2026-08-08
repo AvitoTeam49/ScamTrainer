@@ -33,6 +33,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const healthzTimeout = 2 * time.Second
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("application stopped", "error", err)
@@ -125,7 +127,18 @@ func run() error {
 
 	// healthz живёт вне HTTP_PREFIX, чтобы проверки инфраструктуры не зависели от версии API.
 	root := http.NewServeMux()
-	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		pingCtx, cancel := context.WithTimeout(r.Context(), healthzTimeout)
+		defer cancel()
+
+		// Без проверки пула контейнер считался бы здоровым с отвалившейся базой.
+		if err := pool.Ping(pingCtx); err != nil {
+			slog.ErrorContext(pingCtx, "healthz failed", "error", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 	root.Handle("/", http.StripPrefix(cfg.HTTP.Prefix, mux))

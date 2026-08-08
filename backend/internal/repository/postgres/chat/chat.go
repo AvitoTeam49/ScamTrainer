@@ -65,6 +65,9 @@ func (r *ChatRepository) Create(ctx context.Context, chat *chatdomain.Chat) erro
 		CreatedAt:     chat.CreatedAt,
 	})
 	if err != nil {
+		if isForeignKeyViolation(err) {
+			return chatdomain.ErrOwnerNotFound
+		}
 		return fmt.Errorf("failed to create chat query: %w", err)
 	}
 

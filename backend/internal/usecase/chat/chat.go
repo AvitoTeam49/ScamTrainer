@@ -44,6 +44,7 @@ type Service struct {
 	events        EventPublisher
 	awards        ScoreAwarder
 	training      *training.TrainingService
+	turns         *turnGate
 	agent         agent.Agent
 	historyLimit  int
 	maxToolRounds int
@@ -77,6 +78,7 @@ func New(
 		events:        events,
 		awards:        awards,
 		training:      trainingService,
+		turns:         newTurnGate(),
 		agent:         chatAgent,
 		historyLimit:  options.HistoryLimit,
 		maxToolRounds: options.MaxToolRounds,
@@ -104,6 +106,13 @@ func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title
 	}
 
 	if err := s.openingMessage(ctx, chat, started.Node); err != nil {
+		// Общей транзакции у двух репозиториев нет, а чат без завязки бесполезен:
+		// откатываем его сами, чтобы у пользователя не осталось пустого чата.
+		if dropErr := s.chats.Delete(ctx, chat.ID); dropErr != nil {
+			slog.ErrorContext(ctx, "failed to drop chat without opening message",
+				"chat_id", chat.ID, "error", dropErr)
+		}
+
 		return nil, err
 	}
 
@@ -169,11 +178,18 @@ func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content
 }
 
 func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
+	release, err := s.turns.acquire(ctx, chatID)
+	if err != nil {
+		return s.fail(ctx, chatID, err)
+	}
+	defer release()
+
 	chat, err := s.chats.GetByID(ctx, chatID)
 	if err != nil {
 		return s.fail(ctx, chatID, err)
 	}
 
+	// Чат мог завершиться, пока этот ход ждал предыдущего.
 	if !chat.IsActive() {
 		return nil
 	}

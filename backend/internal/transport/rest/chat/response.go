@@ -39,7 +39,7 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: err.Error()})
 	case errors.Is(err, chatdomain.ErrChatAccessDenied):
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: err.Error()})
-	case errors.Is(err, chatdomain.ErrChatFinished):
+	case errors.Is(err, chatdomain.ErrChatFinished), errors.Is(err, chatdomain.ErrOwnerNotFound):
 		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
 	case errors.Is(err, errInvalidRequest),
 		errors.Is(err, chatdomain.ErrInvalidCursor),

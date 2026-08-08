@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent"
@@ -303,6 +304,63 @@ func TestSendMessage_RejectsChatParkedOnEndingNode(t *testing.T) {
 	}
 }
 
+// Два сообщения подряд запускают два хода; второй не должен дописывать реплику
+// в уже завершённый сценарий и начислять очки повторно.
+func TestRunAgentTurn_SerializesConcurrentTurnsOfSameChat(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	fixture.agent.replies = []*agent.Reply{
+		{
+			Content:   "Понимаю",
+			ToolCalls: []agent.ToolCall{applyTransitionCall("stay_on_platform")},
+		},
+		{Content: "Хорошо"},
+		{Content: "Лишняя реплика после финала"},
+		{Content: "И ещё одна"},
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	for range 2 {
+		go func() {
+			defer wg.Done()
+
+			_ = fixture.service.RunAgentTurn(context.Background(), 1)
+		}()
+	}
+	wg.Wait()
+
+	if got := len(fixture.decisions.created); got != 1 {
+		t.Fatalf("decisions: got %d, want 1", got)
+	}
+
+	if got := len(fixture.awards.calls); got != 1 {
+		t.Fatalf("awards: got %d, want 1", got)
+	}
+
+	if got := len(fixture.messages.bySender(chatdomain.SenderTypeAgent)); got != 1 {
+		t.Fatalf("agent messages: got %d, want 1 — второй ход дописал реплику после финала", got)
+	}
+
+	if got := fixture.chats.chat.Score; got != 20 {
+		t.Fatalf("score: got %d, want 20", got)
+	}
+}
+
+func TestStartChat_DropsChatWhenOpeningMessageFails(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.messages.createErr = errors.New("storage is down")
+
+	if _, err := fixture.service.StartChat(context.Background(), 42, 7, ""); err == nil {
+		t.Fatal("start chat must fail when the opening message cannot be stored")
+	}
+
+	if got := fixture.chats.deleted; got != 1 {
+		t.Fatalf("deleted chats: got %d, want 1 — чат без завязки должен откатываться", got)
+	}
+}
+
 func TestStartChat_PositionsChatOnStartNode(t *testing.T) {
 	fixture := newFixture(t, "start")
 
@@ -322,6 +380,11 @@ func TestStartChat_PositionsChatOnStartNode(t *testing.T) {
 	if chat.Title != "Поддельная ссылка на доставку" {
 		t.Fatalf("title should fall back to the scenario title, got %q", chat.Title)
 	}
+
+	opening := fixture.messages.bySender(chatdomain.SenderTypeAgent)
+	if len(opening) != 1 || opening[0].Content != "Готов купить, оформим по моей ссылке." {
+		t.Fatalf("chat must open with the start node line, got %v", opening)
+	}
 }
 
 type fixture struct {
@@ -332,6 +395,7 @@ type fixture struct {
 	agent     *fakeAgent
 	sessions  *training.InMemorySessionRepository
 	awards    *fakeScoreAwarder
+	messages  *fakeMessageRepository
 }
 
 func newFixture(t *testing.T, currentNodeID string) *fixture {
@@ -352,11 +416,12 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 	scenarios := &fakeScenarioSource{scenario: testScenario()}
 	sessions := training.NewInMemorySessionRepository()
 	awards := &fakeScoreAwarder{}
+	messages := &fakeMessageRepository{}
 
 	return &fixture{
 		service: New(
 			chats,
-			&fakeMessageRepository{},
+			messages,
 			decisions,
 			scenarios,
 			sessions,
@@ -372,6 +437,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 		agent:     chatAgent,
 		sessions:  sessions,
 		awards:    awards,
+		messages:  messages,
 	}
 }
 
@@ -436,9 +502,10 @@ func testScenario() *scenariodomain.Scenario {
 		LLM:         scenariodomain.ScenarioLLM{CharacterPrompt: "Ты играешь роль покупателя"},
 		Nodes: map[string]*scenariodomain.Node{
 			"start": {
-				ID:   "start",
-				Type: scenariodomain.NodeTypeDecision,
-				LLM:  scenariodomain.NodeLLM{ReplyInstruction: "Убеждай открыть ссылку"},
+				ID:      "start",
+				Type:    scenariodomain.NodeTypeDecision,
+				Message: scenariodomain.Message{Author: "scammer", Text: "Готов купить, оформим по моей ссылке."},
+				LLM:     scenariodomain.NodeLLM{ReplyInstruction: "Убеждай открыть ссылку"},
 				Transitions: []scenariodomain.Transition{
 					{
 						ID:          "open_link",
@@ -505,6 +572,7 @@ func (f *fakeEventPublisher) types() []chatdomain.EventType {
 type fakeChatRepository struct {
 	chat     *chatdomain.Chat
 	finishes int
+	deleted  int
 }
 
 func (f *fakeChatRepository) GetByID(context.Context, int64) (*chatdomain.Chat, error) {
@@ -528,10 +596,15 @@ func (f *fakeChatRepository) Finish(context.Context, *chatdomain.Chat) (bool, er
 	return f.finishes == 1, nil
 }
 
-func (f *fakeChatRepository) Delete(context.Context, int64) error { return nil }
+func (f *fakeChatRepository) Delete(context.Context, int64) error {
+	f.deleted++
+
+	return nil
+}
 
 type fakeMessageRepository struct {
-	created []*chatdomain.Message
+	created   []*chatdomain.Message
+	createErr error
 }
 
 func (f *fakeMessageRepository) ListByChatID(
@@ -541,8 +614,24 @@ func (f *fakeMessageRepository) ListByChatID(
 }
 
 func (f *fakeMessageRepository) Create(_ context.Context, message *chatdomain.Message) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
+
 	f.created = append(f.created, message)
+
 	return nil
+}
+
+func (f *fakeMessageRepository) bySender(sender chatdomain.SenderType) []*chatdomain.Message {
+	found := make([]*chatdomain.Message, 0, len(f.created))
+	for _, message := range f.created {
+		if message.SenderType == sender {
+			found = append(found, message)
+		}
+	}
+
+	return found
 }
 
 type fakeDecisionRepository struct {
