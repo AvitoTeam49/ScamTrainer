@@ -146,6 +146,36 @@ func TestRunAgentTurn_DoesNotAwardTwiceWhenChatAlreadyFinished(t *testing.T) {
 	}
 }
 
+// Модель почти всегда отдаёт tool-call с пустым content — это не поломка хода.
+func TestRunAgentTurn_ToolCallWithoutContentClosesScenarioWithEndingText(t *testing.T) {
+	fixture := newFixture(t, "start")
+
+	fixture.agent.replies = []*agent.Reply{
+		{ToolCalls: []agent.ToolCall{applyTransitionCall("stay_on_platform")}},
+	}
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
+	}
+
+	if got := fixture.chats.chat.Status; got != chatdomain.ChatStatusFinished {
+		t.Fatalf("status: got %q, want %q", got, chatdomain.ChatStatusFinished)
+	}
+
+	want := []chatdomain.EventType{
+		chatdomain.EventTypeDecision,
+		chatdomain.EventTypeChat,
+		chatdomain.EventTypeMessage,
+	}
+	if got := fixture.events.types(); !equalTypes(got, want) {
+		t.Fatalf("event sequence: got %v, want %v", got, want)
+	}
+
+	if got := fixture.awards.calls; len(got) != 1 || got[0].scoreDelta != 20 {
+		t.Fatalf("awards: got %v, want one award of 20", got)
+	}
+}
+
 func TestRunAgentTurn_RestoresLostSession(t *testing.T) {
 	fixture := newFixture(t, "start")
 

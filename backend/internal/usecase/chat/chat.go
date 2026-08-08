@@ -198,6 +198,11 @@ func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
 		return s.fail(ctx, chatID, err)
 	}
 
+	// Завершиться сценарий мог одним вызовом инструмента, без единого слова от модели.
+	if reply == "" {
+		return nil
+	}
+
 	agentMessage := &chatdomain.Message{
 		ChatID:     chat.ID,
 		SenderType: chatdomain.SenderTypeAgent,
@@ -213,6 +218,8 @@ func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
 }
 
 func (s *Service) fail(ctx context.Context, chatID int64, err error) error {
+	slog.ErrorContext(ctx, "agent turn failed", "chat_id", chatID, "error", err)
+
 	s.events.Publish(ctx, chatdomain.ErrorEvent(chatID, failureReason(err)))
 
 	return err
@@ -334,11 +341,26 @@ func (s *Service) runAgent(
 		}
 	}
 
-	if content == "" {
-		return "", fmt.Errorf("%w: agent produced no content", agent.ErrBadResponse)
+	if content != "" {
+		return content, nil
 	}
 
-	return content, nil
+	// Модель часто отвечает одним tool-call'ом без текста. Если сценарий на этом закончился,
+	// закрывающую реплику берём из вершины-концовки, а не считаем ход сломанным.
+	if !chat.IsActive() {
+		return endingMessage(scenario, chat.CurrentNodeID), nil
+	}
+
+	return "", fmt.Errorf("%w: agent produced no content", agent.ErrBadResponse)
+}
+
+func endingMessage(scenario *scenariodomain.Scenario, nodeID string) string {
+	node, ok := scenario.Nodes[nodeID]
+	if !ok || node.Type != scenariodomain.NodeTypeEnding {
+		return ""
+	}
+
+	return strings.TrimSpace(node.Message.Text)
 }
 
 func (s *Service) executeTool(
