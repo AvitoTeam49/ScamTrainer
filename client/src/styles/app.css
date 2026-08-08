@@ -510,6 +510,13 @@
     padding-right: 85px;
 }
 
+.auth-error{
+    color: #e74c3c;
+    font-size: 14px;
+    margin-top: 10px;
+    text-align: 'center'
+}
+
 
 @media (max-width: 1024px) {
     .sidebar {

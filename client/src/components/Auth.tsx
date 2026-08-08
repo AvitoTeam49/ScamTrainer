@@ -1,7 +1,9 @@
-import {type FC, useState} from "react";
+import {type FC, useContext, useState} from "react";
 import {useNavigate} from "react-router-dom";
+import {Context} from "../main.tsx";
+import {observer} from "mobx-react-lite";
 
-const Auth:FC = () => {
+const Auth:FC = observer(() => {
 
     const [isPasswordLoginVisible, setIsPasswordLoginVisible] = useState<boolean>(false);
     const [isPasswordRegisterVisible, setIsPasswordRegisterVisible] = useState<boolean>(false);
@@ -9,7 +11,44 @@ const Auth:FC = () => {
     const [loginPassword, setLoginPassword] = useState<string>("");
     const [registerEmail, setRegisterEmail] = useState<string>("");
     const [registerPassword, setRegisterPassword] = useState<string>("");
+    const [loginError, setLoginError] = useState<string>("")
+    const [registerError, setRegisterError] = useState<string>("")
     const navigate = useNavigate();
+    const {auth} = useContext(Context)
+
+    const handleLogin = async () => {
+        const res = await auth.login(loginEmail,loginPassword)
+        setLoginEmail("")
+        setLoginPassword("")
+        setRegisterEmail("")
+        setRegisterPassword("")
+        setLoginError("")
+        setRegisterError("")
+        if(auth.isAuth){
+            navigate("/")
+        }
+        if(!res.success && res.status == 401){
+            setLoginError("Неверная почта или пароль")
+        }
+    };
+
+    const handleRegister = async () => {
+        const res = await auth.registration(registerEmail,registerPassword)
+        setLoginEmail("")
+        setLoginPassword("")
+        setRegisterEmail("")
+        setRegisterPassword("")
+        setLoginError("")
+        setRegisterError("")
+        if(auth.isAuth){
+            navigate("/")
+        }
+        if(!res.success){
+            if(res.status == 400) setRegisterError("Неверный формат почты или невалидный пароль")
+            else if(res.status == 409) setRegisterError("Такой пользователь уже существует")
+
+        }
+    };
 
     return (
         <div className="main auth">
@@ -83,7 +122,8 @@ const Auth:FC = () => {
                             </div>
                         </div>
 
-                        <button className="action-btn">Войти</button>
+                        <button className="action-btn" onClick={handleLogin}>Войти</button>
+                        <div className="auth-error">{loginError}</div>
                     </div>
 
                     <div className="auth-column">
@@ -142,7 +182,8 @@ const Auth:FC = () => {
                             </div>
                         </div>
 
-                        <button className="action-btn">Зарегистрироваться</button>
+                        <button className="action-btn" onClick={handleRegister}>Зарегистрироваться</button>
+                        <div className="auth-error">{registerError}</div>
                     </div>
 
                 </div>
@@ -151,6 +192,6 @@ const Auth:FC = () => {
 
 
     );
-};
+});
 
 export default Auth;
