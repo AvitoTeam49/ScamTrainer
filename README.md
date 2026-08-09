@@ -433,3 +433,10 @@ sqlc generate   # после правок queries.sql
 | Как устроены тесты и что не покрыто | `backend/docs/chat.md`, §5 |
 | Сценарии обмана | `backend/scenarios/*.yaml` |
 | Схема БД | `backend/migrations/migrations` |
+
+## Зоны ответственности
+
+- **Домен пользователей, аутентификации и Postgres - Александр Сорокин(tg: @impotatoess, github: https://github.com/Sushka21)
+- **Домен чатов, подключение DeepSeekAPI, интеграция частей проекта между собой, Postgres - Егор Ильин(tg: @Error4524, github: @Error4524)
+- **Домен сценариев - Кирилл Юрдик(tg: @Maverick0987654321, github: https://github.com/kirill1792)
+- **Frontend - Максим Дмитров(tg: @kZuY12, github: https://github.com/peeeeeevooo)
