@@ -51,7 +51,6 @@ func (a *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	})
-	setAccessCookie(w, accessToken)
 	a.respondJSON(w, http.StatusOK, LoginResponse{
 		AccessToken: accessToken,
 	})
