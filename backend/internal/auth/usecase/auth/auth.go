@@ -19,6 +19,7 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+//go:generate mockgen -source=auth.go -destination=mocks/auth_mocks.go -package=mocks
 type authRepository interface {
 	CreateUser(ctx context.Context, email string, passwordHash string) (user entity.User, err error)
 	GetUserByEmail(ctx context.Context, email string) (user entity.User, err error)

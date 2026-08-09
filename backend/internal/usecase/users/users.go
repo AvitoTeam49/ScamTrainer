@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate mockgen -source=users.go -destination=mocks/users_mocks.go -package=mocks
 type (
 	Repository interface {
 		CreateUser(ctx context.Context, userID int64, username string) (*usersdomain.User, error)
