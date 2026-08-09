@@ -1,51 +1,111 @@
+import {
+    useState,
+    type KeyboardEvent,
+    type FC,
+    useContext
+} from "react";
+
 import {observer} from "mobx-react-lite";
-import {useState, type KeyboardEvent, type FC, useContext} from "react";
 import {Context} from "../main.tsx";
+import {useParams} from "react-router-dom";
 
-const InputArea:FC = observer(() => {
-    const [value, setValue] = useState<string>("")
+const InputArea: FC = observer(() => {
 
-    const {messages} = useContext(Context)
+    const [value, setValue] = useState("");
 
-    const handleSendMessage = () => {
-        if(value.trim() === "") return
-        const date = new Date()
-        const time_now = date.toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    const {messages, chat} = useContext(Context);
 
-        messages.addNewMessage({content: value, who: "own", time: time_now})
+    const {id} = useParams<{id: string}>();
 
-        setValue("")
-    }
+    const [isLoading, setIsLoading] = useState<boolean>(false)
 
-    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if(e.key === "Enter"){
-            e.preventDefault()
-            handleSendMessage()
+    const handleSendMessage = async () => {
+
+        setIsLoading(true)
+
+        if (!value.trim()) {
+            setIsLoading(false)
+            return;
         }
 
-    }
+        if (!id) {
+            setIsLoading(false)
+            return;
+        }
+
+        const chatId = Number(id);
+
+        if (chat.currentChat?.status === "finished" || chat.currentChat?.status === "abandon") {
+            setIsLoading(false)
+            return;
+        }
+
+        const result = await messages.sendMessage(
+            chatId,
+            value
+        );
+
+        if (result.success) {
+            setValue("");
+        }
+
+        setIsLoading(false)
+    };
+
+    const handleKeyDown = (
+        e: KeyboardEvent<HTMLInputElement>
+    ) => {
+
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
 
     return (
         <div className="input-area">
+
             <div className="input-wrapper">
-                <input value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={handleKeyDown} type="text" placeholder="Сообщение"/>
+
+                <input
+                    value={value}
+                    onChange={e =>
+                        setValue(e.target.value)
+                    }
+                    onKeyDown={handleKeyDown}
+                    type="text"
+                    placeholder="Сообщение"
+                    disabled={isLoading}
+                />
+
             </div>
-            <button className="send-btn" onClick={handleSendMessage}> <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+
+            <button
+                className="send-btn"
+                onClick={handleSendMessage}
+                disabled={isLoading}
             >
-                <line x1="12" y1="19" x2="12" y2="5"></line>
-                <polyline points="5 12 12 5 19 12"></polyline>
-            </svg></button>
+                <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <line
+                        x1="12"
+                        y1="19"
+                        x2="12"
+                        y2="5"
+                    />
+
+                    <polyline points="5 12 12 5 19 12" />
+                </svg>
+            </button>
+
         </div>
     );
 });

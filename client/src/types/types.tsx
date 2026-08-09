@@ -1,13 +1,60 @@
 export interface IChat{
     id: number;
-    role: string;
-    difficulty: string;
+    user_id: number;
+    scenario_id: number;
+    session_id: string;
+    title: string;
+    status: string;
+    resume: string;
+    score: number;
+    current_node_id: string;
+    created_at: string;
+    finished_at: string;
+}
+
+export interface IListChats{
+    items: IChat[];
+    next_after_id: number;
 }
 
 export interface IMessage{
+    id: number;
+    chat_id: number;
+    sender_type: string;
     content: string;
-    who: string;
-    time: string;
+    created_at: string;
+}
+
+export interface IListMessage{
+    items: IMessage[];
+    next_after_id: number;
+}
+
+export interface IDecision{
+    id: number;
+    chat_id: number;
+    node_id: string;
+    transition_id: string;
+    target_node_id: string;
+    score_delta: number;
+    feedback: string;
+    created_at: string;
+}
+
+export interface IListDecision{
+    items: IDecision[];
+    next_after_id: number;
+}
+
+export interface IScenario{
+    id: number;
+    title: string;
+    role: string;
+    difficulty: number;
+}
+
+export interface IListScenario{
+    items: IScenario[];
 }
 
 export interface LoginResponse{

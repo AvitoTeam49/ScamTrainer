@@ -11,7 +11,7 @@ import MainProfile from "./components/MainProfile.tsx";
 
 const App:FC = observer(()=> {
 
-    const {auth, user} = useContext(Context);
+    const {auth, user, chat} = useContext(Context);
 
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -21,15 +21,16 @@ const App:FC = observer(()=> {
             const token = localStorage.getItem("token");
 
             if(!token){
-                auth.setAuth(false)
+                auth.setAuth(true)
                 setIsLoading(false)
                 return
             }
 
             const isValid = await auth.checkAuth()
 
-            if(isValid){
+            if(isValid.success){
                 await user.getProfile()
+                await chat.getChats()
                 auth.setAuth(true)
             }
 
@@ -37,11 +38,13 @@ const App:FC = observer(()=> {
         };
 
         initialize()
-    }, [auth, user]);
+    }, [auth, user, chat]);
 
     if(isLoading){
         return (
-          <div>Загрузка...</div>
+            <div className="loading-container">
+                <div className="spinner"></div>
+            </div>
         );
     }
 

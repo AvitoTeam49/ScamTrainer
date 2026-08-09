@@ -2,16 +2,45 @@ import {type FC, useContext, useState} from "react";
 import {observer} from "mobx-react-lite";
 import {useNavigate} from "react-router-dom";
 import {Context} from "../main.tsx";
+import type {IScenario} from "../types/types.tsx";
 
 
 const NewChatArea:FC = observer(() => {
 
-    const {chat, menuOpen, user} = useContext(Context)
-
+    const {chat, menuOpen, user, scenario} = useContext(Context)
     const [selectedRole, setSelectedRole] = useState<string | null>(null)
-    const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
-    let old_id = chat.chats.length > 0 ? chat.chats[chat.chats.length - 1].id : 1
+    const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null)
+    const [isLoading, setIsLoading] = useState<boolean>(false)
     const navigate = useNavigate()
+
+    const handleCreateChat = async () => {
+        setIsLoading(true)
+        const scenario_result = await scenario.getScenarios(selectedDifficulty? selectedDifficulty : 1)
+        if(!scenario_result.success){
+            setIsLoading(false)
+            return
+        }
+        const selectedScenario: IScenario = scenario.scenarios.find(
+            item => item.role === (selectedRole ? selectedRole : "buyer")
+        );
+
+        if (!selectedScenario) {
+            setIsLoading(false);
+            return;
+        }
+        const scenario_id =  selectedScenario.id
+        const scenario_title = selectedScenario.title
+
+        const chat_result = await chat.createChat(scenario_id, scenario_title)
+        if(!chat_result.success || !chat_result.chat){
+            setIsLoading(false)
+            return
+        }
+
+        navigate(`/chat/${chat_result.chat.id}`)
+        setIsLoading(false)
+
+    }
 
     return (
         <div className="main-content">
@@ -42,21 +71,18 @@ const NewChatArea:FC = observer(() => {
 
             <div className="label">Выберите сложность</div>
             <div className="button-group">
-                <button className={`option-btn ${selectedDifficulty === "easy" ? "active" : ""}`}
-                onClick={() => setSelectedDifficulty('easy')}>
+                <button className={`option-btn ${selectedDifficulty === 1 ? "active" : ""}`}
+                onClick={() => setSelectedDifficulty(0)}>
                     Легкая</button>
-                <button className={`option-btn ${selectedDifficulty === "medium" ? "active" : ""}`}
-                        onClick={() => setSelectedDifficulty('medium')}>
+                <button className={`option-btn ${selectedDifficulty === 2 ? "active" : ""}`}
+                        onClick={() => setSelectedDifficulty(2)}>
                     Средняя</button>
-                <button className={`option-btn ${selectedDifficulty === "hard" ? "active" : ""}`}
-                        onClick={() => setSelectedDifficulty('hard')}>
+                <button className={`option-btn ${selectedDifficulty === 3 ? "active" : ""}`}
+                        onClick={() => setSelectedDifficulty(3)}>
                     Сложная</button>
             </div>
 
-            <button className="create-btn" onClick={() => {
-                chat.addNewChat({id: old_id + 1, role: selectedRole ? selectedRole : "buyer", difficulty: selectedDifficulty ? selectedDifficulty : "easy"})
-                navigate(`/chat/${old_id + 1}`)
-            }}>Создать</button>
+            <button className="create-btn" onClick={handleCreateChat} disabled={isLoading}>Создать</button>
         </div>
     );
 });

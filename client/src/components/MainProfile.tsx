@@ -22,9 +22,12 @@ const MainProfile:FC = observer(() => {
 
     if(isLoading){
         return (
-            <div>Загрузка...</div>
+            <div className="loading-container">
+                <div className="spinner"></div>
+            </div>
         );
     }
+
     return (
         <div className="app-container">
             <Sidebar />

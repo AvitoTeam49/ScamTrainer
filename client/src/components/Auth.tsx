@@ -19,8 +19,6 @@ const Auth:FC = observer(() => {
 
     const handleLogin = async () => {
         setIsLoading(true)
-        setLoginEmail("");
-        setLoginPassword("");
         setLoginError("");
 
         const result = await auth.login(loginEmail,loginPassword)
@@ -28,6 +26,7 @@ const Auth:FC = observer(() => {
         if(!result.success){
             if(result.status == 401) setLoginError("Неверная почта или пароль")
             else setLoginError("Ошибка входа")
+            setIsLoading(false)
             return
         }
 
@@ -36,12 +35,12 @@ const Auth:FC = observer(() => {
         navigate("/")
 
         setIsLoading(false)
+        setLoginEmail("");
+        setLoginPassword("");
     };
 
     const handleRegister = async () => {
         setIsLoading(true)
-        setRegisterEmail("");
-        setRegisterPassword("");
         setRegisterError("");
 
         const result= await auth.registration(registerEmail,registerPassword)
@@ -50,10 +49,9 @@ const Auth:FC = observer(() => {
             if(result.status == 400) setRegisterError("Неверный формат почты или невалидный пароль")
             else if(result.status == 409) setRegisterError("Такой пользователь уже существует")
             else setRegisterError("Ошибка Регистрации")
+            setIsLoading(false)
             return
         }
-
-        await user.createProfile(registerEmail)
 
         const loginResult = await auth.login(registerEmail, registerPassword)
 
@@ -61,9 +59,14 @@ const Auth:FC = observer(() => {
             setRegisterError("Регистрация успешна, но вход не выполнен");
             return;
         }
+
+        await user.createProfile(registerEmail)
+
         navigate("/")
 
         setIsLoading(false)
+        setRegisterEmail("");
+        setRegisterPassword("");
     };
 
     return (

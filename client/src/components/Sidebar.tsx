@@ -12,7 +12,6 @@ interface SidebarProps {
 const Sidebar= observer(({id}: SidebarProps) => {
 
     const navigate = useNavigate()
-
     const {menuOpen, chat} = useContext(Context)
 
     return (
@@ -36,7 +35,7 @@ const Sidebar= observer(({id}: SidebarProps) => {
             <ul className="chat-list">
                 {chat.chats.map((ch: IChat) => (
                     <li key={ch.id}
-                        className={`chat-item ${String(ch.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${ch.id}`)}>Chat {ch.role} {ch.difficulty} {ch.id}</li>
+                        className={`chat-item ${String(ch.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${ch.id}`)}>{ch.title}</li>
                 ))}
             </ul>
         </div>

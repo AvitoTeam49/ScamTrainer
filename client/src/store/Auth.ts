@@ -3,7 +3,7 @@ import AuthService from "../services/AuthService.ts";
 import axios from "axios";
 
 export default class Auth {
-    isAuth = false
+    isAuth = true
 
     constructor() {
         makeAutoObservable(this)

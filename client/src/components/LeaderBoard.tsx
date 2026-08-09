@@ -12,7 +12,9 @@ const LeaderBoard: FC = observer(() => {
         return (
             <div className="leaderboard-section">
                 <h1>Лидеры</h1>
-                <p>Лидерборд загружается...</p>
+                <div className="loading-container">
+                    <div className="spinner"></div>
+                </div>
             </div>
         );
     }

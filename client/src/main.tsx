@@ -6,6 +6,7 @@ import Messages from "./store/Messages.ts";
 import MenuOpen from "./store/MenuOpen.ts";
 import Auth from "./store/Auth.ts";
 import User from "./store/User.ts";
+import Scenario from "./store/Scenario.ts";
 
 interface Store{
     chat: Chat,
@@ -13,6 +14,7 @@ interface Store{
     menuOpen: MenuOpen,
     auth: Auth,
     user: User,
+    scenario: Scenario,
 }
 
 const chat = new Chat()
@@ -20,13 +22,15 @@ const messages = new Messages()
 const menuOpen = new MenuOpen()
 const auth = new Auth()
 const user = new User()
+const scenario = new Scenario()
 
 export const Context = createContext<Store>({
     chat,
     messages,
     menuOpen,
     auth,
-    user
+    user,
+    scenario
 })
 
 
@@ -36,7 +40,8 @@ createRoot(document.getElementById('root')!).render(
         messages,
         menuOpen,
         auth,
-        user
+        user,
+        scenario
     }}>
             <App />
     </Context.Provider>

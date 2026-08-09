@@ -4,9 +4,9 @@ import UsersService from "../services/UsersService.ts";
 import axios from "axios";
 
 export default class User {
-    user = {} as ProfileResponse;
-    progress = {} as ProgressResponse;
-    leaderboard = {} as LeaderBoardResponse
+    user: ProfileResponse | null = null;
+    progress: ProgressResponse | null = null;
+    leaderboard: LeaderBoardResponse | null = null;
 
     constructor() {
         makeAutoObservable(this)
