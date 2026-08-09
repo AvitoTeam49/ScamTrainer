@@ -7,23 +7,37 @@ import {type FC, useContext, useEffect, useState} from "react";
 import {Context} from "./main.tsx";
 import {observer} from "mobx-react-lite";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
+import MainProfile from "./components/MainProfile.tsx";
 
 const App:FC = observer(()=> {
 
-    const {auth} = useContext(Context);
+    const {auth, user} = useContext(Context);
 
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            if(localStorage.getItem('token')){
-                await auth.checkAuth();
+        const initialize = async () => {
+
+            const token = localStorage.getItem("token");
+
+            if(!token){
+                auth.setAuth(false)
+                setIsLoading(false)
+                return
             }
+
+            const isValid = await auth.checkAuth()
+
+            if(isValid){
+                await user.getProfile()
+                auth.setAuth(true)
+            }
+
             setIsLoading(false);
         };
 
-        checkAuth();
-    }, []);
+        initialize()
+    }, [auth, user]);
 
     if(isLoading){
         return (
@@ -43,6 +57,7 @@ const App:FC = observer(()=> {
                     <Route element={<ProtectedRoute isAllowed={auth.isAuth}/>}>
                         <Route path="/" element={<MainNewChat/>}/>
                         <Route path="/chat/:id" element={<Main/>}/>
+                        <Route path="/profile" element={<MainProfile/>}/>
                     </Route>
                 </Routes>
             </div>

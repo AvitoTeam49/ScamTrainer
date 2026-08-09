@@ -6,8 +6,8 @@ import type {FC} from "react";
 const MainNewChat:FC = () => {
     return (
         <div className="main">
-            <Sidebar></Sidebar>
-            <NewChatArea></NewChatArea>
+            <Sidebar />
+            <NewChatArea />
         </div>
     );
 };

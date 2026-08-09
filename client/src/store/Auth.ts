@@ -1,10 +1,9 @@
 import {makeAutoObservable} from "mobx";
 import AuthService from "../services/AuthService.ts";
-import type {RegistrationResponse} from "../types/types.tsx";
+import axios from "axios";
 
 export default class Auth {
     isAuth = false
-    user = {} as RegistrationResponse;
 
     constructor() {
         makeAutoObservable(this)
@@ -12,10 +11,6 @@ export default class Auth {
 
     setAuth(bool: boolean) {
         this.isAuth = bool;
-    }
-
-    setUser (user: RegistrationResponse) {
-        this.user = user;
     }
 
     async login(email: string, password: string): Promise<{success: boolean, status?: number}> {
@@ -26,37 +21,32 @@ export default class Auth {
             return {success: true};
 
         }catch(e){
-            console.error(e.response?.data?.error);
-            return {success: false, status: e.response?.status};
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
     async registration(email: string, password: string): Promise<{success: boolean, status?: number}> {
         try{
-            const response = await AuthService.registration(email, password);
-            const res = await this.login(email, password);
-            this.setUser(response.data)
-            return res
+            await AuthService.registration(email, password);
+            return {success: true};
         }catch(e){
-            console.error(e.response?.data?.error);
-            return {success: false, status: e.response?.status};
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
-    async checkAuth(): Promise<boolean> {
+    async checkAuth(): Promise<{success: boolean, status?: number}> {
         try{
             const response = await AuthService.checkAuth();
             if (response.data.is_valid){
                 this.setAuth(true);
-                return true;
+                return {success: true};
             }else{
                 this.setAuth(false)
-                return false;
+                return {success: false};
             }
         }catch(e){
-            console.error(e.response?.data?.error);
             this.setAuth(false)
-            return false;
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 

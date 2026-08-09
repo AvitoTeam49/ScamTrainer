@@ -5,6 +5,7 @@ import {observer} from "mobx-react-lite";
 
 const Auth:FC = observer(() => {
 
+    const [isLoading, setIsLoading] = useState<boolean>(false)
     const [isPasswordLoginVisible, setIsPasswordLoginVisible] = useState<boolean>(false);
     const [isPasswordRegisterVisible, setIsPasswordRegisterVisible] = useState<boolean>(false);
     const [loginEmail, setLoginEmail] = useState<string>("");
@@ -14,40 +15,55 @@ const Auth:FC = observer(() => {
     const [loginError, setLoginError] = useState<string>("")
     const [registerError, setRegisterError] = useState<string>("")
     const navigate = useNavigate();
-    const {auth} = useContext(Context)
+    const {auth, user} = useContext(Context)
 
     const handleLogin = async () => {
-        const res = await auth.login(loginEmail,loginPassword)
-        setLoginEmail("")
-        setLoginPassword("")
-        setRegisterEmail("")
-        setRegisterPassword("")
-        setLoginError("")
-        setRegisterError("")
-        if(auth.isAuth){
-            navigate("/")
+        setIsLoading(true)
+        setLoginEmail("");
+        setLoginPassword("");
+        setLoginError("");
+
+        const result = await auth.login(loginEmail,loginPassword)
+
+        if(!result.success){
+            if(result.status == 401) setLoginError("Неверная почта или пароль")
+            else setLoginError("Ошибка входа")
+            return
         }
-        if(!res.success && res.status == 401){
-            setLoginError("Неверная почта или пароль")
-        }
+
+        await user.getProfile()
+
+        navigate("/")
+
+        setIsLoading(false)
     };
 
     const handleRegister = async () => {
-        const res = await auth.registration(registerEmail,registerPassword)
-        setLoginEmail("")
-        setLoginPassword("")
-        setRegisterEmail("")
-        setRegisterPassword("")
-        setLoginError("")
-        setRegisterError("")
-        if(auth.isAuth){
-            navigate("/")
-        }
-        if(!res.success){
-            if(res.status == 400) setRegisterError("Неверный формат почты или невалидный пароль")
-            else if(res.status == 409) setRegisterError("Такой пользователь уже существует")
+        setIsLoading(true)
+        setRegisterEmail("");
+        setRegisterPassword("");
+        setRegisterError("");
 
+        const result= await auth.registration(registerEmail,registerPassword)
+
+        if(!result.success){
+            if(result.status == 400) setRegisterError("Неверный формат почты или невалидный пароль")
+            else if(result.status == 409) setRegisterError("Такой пользователь уже существует")
+            else setRegisterError("Ошибка Регистрации")
+            return
         }
+
+        await user.createProfile(registerEmail)
+
+        const loginResult = await auth.login(registerEmail, registerPassword)
+
+        if (!loginResult.success) {
+            setRegisterError("Регистрация успешна, но вход не выполнен");
+            return;
+        }
+        navigate("/")
+
+        setIsLoading(false)
     };
 
     return (
@@ -71,7 +87,7 @@ const Auth:FC = observer(() => {
                         <div className="input-group">
                             <div className="input-wrapper-with-icon">
                                 <input
-                                    type="text"
+                                    type="email"
                                     placeholder="Почта"
                                     value={loginEmail}
                                     onChange={(e) => setLoginEmail(e.target.value)}
@@ -122,7 +138,7 @@ const Auth:FC = observer(() => {
                             </div>
                         </div>
 
-                        <button className="action-btn" onClick={handleLogin}>Войти</button>
+                        <button className="action-btn" onClick={handleLogin} disabled={isLoading}>Войти</button>
                         <div className="auth-error">{loginError}</div>
                     </div>
 
@@ -132,7 +148,7 @@ const Auth:FC = observer(() => {
                         <div className="input-group">
                             <div className="input-wrapper-with-icon">
                                 <input
-                                    type="text"
+                                    type="email"
                                     placeholder="Почта"
                                     value={registerEmail}
                                     onChange={(e) => setRegisterEmail(e.target.value)}
@@ -182,7 +198,7 @@ const Auth:FC = observer(() => {
                             </div>
                         </div>
 
-                        <button className="action-btn" onClick={handleRegister}>Зарегистрироваться</button>
+                        <button className="action-btn" onClick={handleRegister} disabled={isLoading}>Зарегистрироваться</button>
                         <div className="auth-error">{registerError}</div>
                     </div>
 

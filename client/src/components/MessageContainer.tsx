@@ -9,8 +9,8 @@ const MessageContainer:FC = observer(() => {
 
     return (
         <div className="messages-container">
-            {messages.messages.map((mess: IMessage)=> (
-                <div className={`message-wrapper ${mess.who === "other" ? "other" : "own"}`}>
+            {messages.messages.map((mess: IMessage, index: number)=> (
+                <div key={index} className={`message-wrapper ${mess.who === "other" ? "other" : "own"}`}>
                     <span className="message-time">{mess.time}</span>
                     <div className="message-bubble">
                         {mess.content}

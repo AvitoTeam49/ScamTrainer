@@ -6,7 +6,7 @@ import {Context} from "../main.tsx";
 
 const NewChatArea:FC = observer(() => {
 
-    const {chat, menuOpen} = useContext(Context)
+    const {chat, menuOpen, user} = useContext(Context)
 
     const [selectedRole, setSelectedRole] = useState<string | null>(null)
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
@@ -22,6 +22,8 @@ const NewChatArea:FC = observer(() => {
             >
                 ☰
             </button>
+
+            <button className="header-username" onClick={() => navigate("/profile")}>{user.user.username}</button>
 
 
             <h1 className="title">Создать новый чат</h1>
