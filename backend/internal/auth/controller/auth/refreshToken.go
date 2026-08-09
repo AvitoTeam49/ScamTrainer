@@ -40,7 +40,6 @@ func (a *authHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	})
-	setAccessCookie(w, newAccess)
 
 	a.respondJSON(w, http.StatusOK, RefreshResponse{
 		AccessToken: newAccess,
