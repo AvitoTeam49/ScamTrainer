@@ -19,7 +19,7 @@
 
 ## 1. Границы владения
 
-### Моё — правим свободно
+### Моё — правим свободно(Mind)
 
 - `backend/internal/domain/chat/**`, `backend/internal/usecase/chat/**`,
   `backend/internal/transport/rest/chat/**`, `backend/internal/repository/postgres/chat/**`
