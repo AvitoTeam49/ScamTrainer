@@ -28,8 +28,6 @@ type CloseChatParams struct {
 	ID         int64      `json:"id"`
 }
 
-// Закрытие идемпотентно: чат переводится в терминальный статус (finished или abandoned)
-// ровно один раз, поэтому параллельный ход агента не сможет закрыть его повторно.
 func (q *Queries) CloseChat(ctx context.Context, arg CloseChatParams) (int64, error) {
 	result, err := q.db.Exec(ctx, closeChat,
 		arg.Status,
@@ -90,35 +88,37 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (int64, 
 }
 
 const createDecision = `-- name: CreateDecision :one
-WITH new_decision AS (
-    INSERT INTO chat_decisions (chat_id, node_id, transition_id, target_node_id, score_delta, feedback)
-    VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6
-    )
-    RETURNING id, created_at
-), updated_chat AS (
+WITH updated_chat AS (
     UPDATE chats
-    SET score = $7,
-        current_node_id = $4
-    WHERE id = $1
+    SET score = $1,
+        current_node_id = $2
+    WHERE chats.id = $3
+      AND chats.status = 'active'
+    RETURNING chats.id
+), new_decision AS (
+    INSERT INTO chat_decisions (chat_id, node_id, transition_id, target_node_id, score_delta, feedback)
+    SELECT
+        updated_chat.id,
+        $4::text,
+        $5::text,
+        $2::text,
+        $6::bigint,
+        $7::text
+    FROM updated_chat
+    RETURNING id, created_at
 )
 SELECT id, created_at
 FROM new_decision
 `
 
 type CreateDecisionParams struct {
+	Score        int64  `json:"score"`
+	TargetNodeID string `json:"target_node_id"`
 	ChatID       int64  `json:"chat_id"`
 	NodeID       string `json:"node_id"`
 	TransitionID string `json:"transition_id"`
-	TargetNodeID string `json:"target_node_id"`
 	ScoreDelta   int64  `json:"score_delta"`
 	Feedback     string `json:"feedback"`
-	Score        int64  `json:"score"`
 }
 
 type CreateDecisionRow struct {
@@ -128,13 +128,13 @@ type CreateDecisionRow struct {
 
 func (q *Queries) CreateDecision(ctx context.Context, arg CreateDecisionParams) (CreateDecisionRow, error) {
 	row := q.db.QueryRow(ctx, createDecision,
+		arg.Score,
+		arg.TargetNodeID,
 		arg.ChatID,
 		arg.NodeID,
 		arg.TransitionID,
-		arg.TargetNodeID,
 		arg.ScoreDelta,
 		arg.Feedback,
-		arg.Score,
 	)
 	var i CreateDecisionRow
 	err := row.Scan(&i.ID, &i.CreatedAt)

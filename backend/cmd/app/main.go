@@ -125,13 +125,11 @@ func run() error {
 	usersrest.New(usersService, logger).Register(protected)
 	scenariosrest.NewHandler(scenarios).Register(protected)
 
-	// healthz живёт вне HTTP_PREFIX, чтобы проверки инфраструктуры не зависели от версии API.
 	root := http.NewServeMux()
 	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		pingCtx, cancel := context.WithTimeout(r.Context(), healthzTimeout)
 		defer cancel()
 
-		// Без проверки пула контейнер считался бы здоровым с отвалившейся базой.
 		if err := pool.Ping(pingCtx); err != nil {
 			slog.ErrorContext(pingCtx, "healthz failed", "error", err)
 			w.WriteHeader(http.StatusServiceUnavailable)

@@ -50,7 +50,6 @@ func bearerToken(r *http.Request) (string, bool) {
 	return strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 }
 
-// EventSource не умеет отправлять заголовок Authorization, поэтому SSE авторизуется кукой.
 func cookieToken(r *http.Request) (string, bool) {
 	cookie, err := r.Cookie(auth.AccessTokenCookie)
 	if err != nil {

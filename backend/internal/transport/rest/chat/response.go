@@ -13,13 +13,15 @@ import (
 )
 
 const (
-	defaultLimit = 50
-	maxLimit     = 100
+	defaultLimit   = 50
+	maxLimit       = chatdomain.MaxCursorLimit
+	maxRequestBody = 64 << 10
 )
 
 var (
-	errInvalidRequest = errors.New("invalid request")
-	errUnauthorized   = errors.New("unauthorized")
+	errInvalidRequest  = errors.New("invalid request")
+	errUnauthorized    = errors.New("unauthorized")
+	errRequestTooLarge = errors.New("request body is too large")
 )
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -41,9 +43,13 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: err.Error()})
 	case errors.Is(err, chatdomain.ErrChatFinished), errors.Is(err, chatdomain.ErrOwnerNotFound):
 		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
+	case errors.Is(err, errRequestTooLarge):
+		writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{Error: err.Error()})
 	case errors.Is(err, errInvalidRequest),
 		errors.Is(err, chatdomain.ErrInvalidCursor),
-		errors.Is(err, chatdomain.ErrMessageEmpty):
+		errors.Is(err, chatdomain.ErrMessageEmpty),
+		errors.Is(err, chatdomain.ErrMessageTooLong),
+		errors.Is(err, chatdomain.ErrTitleTooLong):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 	default:
 		slog.ErrorContext(r.Context(), "chat request failed", "method", r.Method, "path", r.URL.Path, "error", err)
@@ -51,8 +57,15 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
-func decodeJSON(r *http.Request, target any) error {
+func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+
 	if err := json.NewDecoder(r.Body).Decode(target); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			return fmt.Errorf("%w: limit is %d bytes", errRequestTooLarge, maxRequestBody)
+		}
+
 		return fmt.Errorf("%w: malformed json body", errInvalidRequest)
 	}
 

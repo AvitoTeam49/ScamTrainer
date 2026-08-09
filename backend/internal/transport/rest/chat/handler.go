@@ -53,7 +53,7 @@ func (h *Handler) startChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request startChatRequest
-	if err := decodeJSON(r, &request); err != nil {
+	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, r, err)
 		return
 	}
@@ -134,7 +134,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request sendMessageRequest
-	if err := decodeJSON(r, &request); err != nil {
+	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, r, err)
 		return
 	}

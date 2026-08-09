@@ -26,8 +26,6 @@ VALUES (
 )
 RETURNING id;
 
--- Закрытие идемпотентно: чат переводится в терминальный статус (finished или abandoned)
--- ровно один раз, поэтому параллельный ход агента не сможет закрыть его повторно.
 -- name: CloseChat :execrows
 UPDATE chats
 SET status = sqlc.arg(status),
@@ -63,22 +61,24 @@ ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
 -- name: CreateDecision :one
-WITH new_decision AS (
-    INSERT INTO chat_decisions (chat_id, node_id, transition_id, target_node_id, score_delta, feedback)
-    VALUES (
-        sqlc.arg(chat_id),
-        sqlc.arg(node_id),
-        sqlc.arg(transition_id),
-        sqlc.arg(target_node_id),
-        sqlc.arg(score_delta),
-        sqlc.arg(feedback)
-    )
-    RETURNING id, created_at
-), updated_chat AS (
+WITH updated_chat AS (
     UPDATE chats
     SET score = sqlc.arg(score),
         current_node_id = sqlc.arg(target_node_id)
-    WHERE id = sqlc.arg(chat_id)
+    WHERE chats.id = sqlc.arg(chat_id)
+      AND chats.status = 'active'
+    RETURNING chats.id
+), new_decision AS (
+    INSERT INTO chat_decisions (chat_id, node_id, transition_id, target_node_id, score_delta, feedback)
+    SELECT
+        updated_chat.id,
+        sqlc.arg(node_id)::text,
+        sqlc.arg(transition_id)::text,
+        sqlc.arg(target_node_id)::text,
+        sqlc.arg(score_delta)::bigint,
+        sqlc.arg(feedback)::text
+    FROM updated_chat
+    RETURNING id, created_at
 )
 SELECT id, created_at
 FROM new_decision;

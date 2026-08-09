@@ -27,7 +27,13 @@ func DecisionEvent(decision *Decision) Event {
 }
 
 func ChatEvent(chat *Chat) Event {
-	return Event{Type: EventTypeChat, ChatID: chat.ID, Chat: chat}
+	snapshot := *chat
+	if chat.FinishedAt != nil {
+		finishedAt := *chat.FinishedAt
+		snapshot.FinishedAt = &finishedAt
+	}
+
+	return Event{Type: EventTypeChat, ChatID: chat.ID, Chat: &snapshot}
 }
 
 func ErrorEvent(chatID int64, reason string) Event {

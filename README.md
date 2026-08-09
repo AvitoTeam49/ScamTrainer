@@ -1,21 +1,23 @@
 # ScamTrainer
 
 Тренажёр против мошенников: пользователь ведёт диалог со сценарным LLM-агентом,
-его решения оцениваются движком сценариев, итог попадает в профиль и лидерборд.
+его решения оценивает движок сценариев, итог попадает в профиль и лидерборд.
 
 ## Запуск
 
 ```bash
-DEEPSEEK_API_KEY=<ключ> docker compose up --build
+echo "DEEPSEEK_API_KEY=<ключ>" > .env
+docker compose up --build
 ```
 
-Миграции накатываются на старте. API доступен на `http://localhost:8080/api`,
-проверка живости — `GET http://localhost:8080/healthz`.
+Миграции накатываются на старте. API — `http://localhost:8080/api`, проверка живости —
+`GET http://localhost:8080/healthz` (пингует Postgres, отдаёт `503`, если база недоступна).
 
-Переменные: `DEEPSEEK_API_KEY` обязательна, `JWT_SECRET` и `DEEPSEEK_MODEL` имеют
-dev-значения по умолчанию. Перед публичным деплоем `JWT_SECRET` нужно задать своим.
+Обязательная переменная одна — `DEEPSEEK_API_KEY`. У `JWT_SECRET`, `DEEPSEEK_BASE_URL`
+и `DEEPSEEK_MODEL` есть dev-значения по умолчанию; `JWT_SECRET` перед публичным деплоем
+нужно задать своим.
 
-## Сквозной сценарий
+## Проверка
 
 ```bash
 API=http://localhost:8080/api/v1
@@ -34,20 +36,12 @@ curl $API/scenarios -H "Authorization: Bearer $TOKEN"
 
 curl -X POST $API/chats -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"scenario_id":1}'
-
-# в соседнем терминале: поток событий чата
-curl -N $API/chats/1/events -H "Authorization: Bearer $TOKEN"
-
-curl -X POST $API/chats/1/messages -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"content":"По сторонним ссылкам я не перехожу, давайте через приложение"}'
-
-curl $API/users/me -H "Authorization: Bearer $TOKEN"
-curl $API/users/leaderboard -H "Authorization: Bearer $TOKEN"
 ```
 
-Отправка сообщения отвечает `202`: ход агента идёт в фоне, результат приходит
-событиями `message` / `decision` / `chat` в SSE-поток.
+Профиль (`POST /users`) нужен до первого чата — без него создание чата вернёт `409`.
+
+Дальше: `POST /chats/1/messages` отвечает `202` сразу, ответ агента приходит в SSE-поток
+`GET /chats/1/events` событиями `message` / `decision` / `chat` / `error`.
 
 ## Разработка
 
@@ -58,5 +52,12 @@ golangci-lint run ./...
 sqlc generate   # после правок queries.sql
 ```
 
-Границы доменов, контракты и принятые решения — в `backend/docs/chat.md`,
-продуктовая цель и стек — в `AGENT.MD`.
+## Куда смотреть
+
+| Что | Где |
+|---|---|
+| Цель, стек, карта доменов | `AGENT.MD` |
+| Домен чатов: контракты, решения, техдолг | `backend/docs/chat.md` |
+| Полный HTTP-контракт и коды ошибок | `backend/docs/chat.md`, §4 |
+| Сценарии обмана | `backend/scenarios/*.yaml` |
+| Схема БД | `backend/migrations/migrations` |

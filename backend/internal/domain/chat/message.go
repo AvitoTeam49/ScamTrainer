@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const MaxMessageLength = 4000
+
 type SenderType string
 
 const (

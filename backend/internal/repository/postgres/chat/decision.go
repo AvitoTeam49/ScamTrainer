@@ -2,10 +2,12 @@ package chatpostgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
 	sqlcChat "github.com/AvitoTeam49/ScamTrainer/backend/internal/repository/postgres/chat/sqlc"
+	"github.com/jackc/pgx/v5"
 )
 
 type DecisionRepository struct {
@@ -66,6 +68,9 @@ func (r *DecisionRepository) Create(
 		Score:        score,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return chatdomain.ErrChatFinished
+		}
 		if isForeignKeyViolation(err) {
 			return chatdomain.ErrChatNotFound
 		}

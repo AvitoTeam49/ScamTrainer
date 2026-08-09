@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent"
 	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
@@ -147,7 +148,6 @@ func TestRunAgentTurn_DoesNotAwardTwiceWhenChatAlreadyFinished(t *testing.T) {
 	}
 }
 
-// Модель почти всегда отдаёт tool-call с пустым content — это не поломка хода.
 func TestRunAgentTurn_ToolCallWithoutContentClosesScenarioWithEndingText(t *testing.T) {
 	fixture := newFixture(t, "start")
 
@@ -304,8 +304,37 @@ func TestSendMessage_RejectsChatParkedOnEndingNode(t *testing.T) {
 	}
 }
 
-// Два сообщения подряд запускают два хода; второй не должен дописывать реплику
-// в уже завершённый сценарий и начислять очки повторно.
+func TestSendMessage_RejectsContentLongerThanLimit(t *testing.T) {
+	fixture := newFixture(t, "start")
+	content := strings.Repeat("я", chatdomain.MaxMessageLength+1)
+
+	_, err := fixture.service.SendMessage(context.Background(), 1, 42, content)
+	if !errors.Is(err, chatdomain.ErrMessageTooLong) {
+		t.Fatalf("got %v, want %v", err, chatdomain.ErrMessageTooLong)
+	}
+
+	if got := len(fixture.messages.created); got != 0 {
+		t.Fatalf("stored messages: got %d, want 0", got)
+	}
+
+	if got := fixture.events.types(); len(got) != 0 {
+		t.Fatalf("events: got %v, want none", got)
+	}
+}
+
+func TestSendMessage_MeasuresLimitInRunesNotBytes(t *testing.T) {
+	fixture := newFixture(t, "start")
+	content := strings.Repeat("я", chatdomain.MaxMessageLength)
+
+	if len(content) <= chatdomain.MaxMessageLength {
+		t.Fatalf("кириллица должна занимать больше байт, чем рун: %d байт", len(content))
+	}
+
+	if _, err := fixture.service.SendMessage(context.Background(), 1, 42, content); err != nil {
+		t.Fatalf("сообщение ровно в лимит рун должно приниматься: %v", err)
+	}
+}
+
 func TestRunAgentTurn_SerializesConcurrentTurnsOfSameChat(t *testing.T) {
 	fixture := newFixture(t, "start")
 
@@ -374,6 +403,43 @@ func TestAbandonChat_ClosesChatWithoutAwardingScore(t *testing.T) {
 	}
 }
 
+func TestAbandonChat_PublishesChatSnapshotDetachedFromLiveChat(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.chats.chat.Score = 20
+
+	chat, err := fixture.service.AbandonChat(context.Background(), 1, 42)
+	if err != nil {
+		t.Fatalf("abandon chat: %v", err)
+	}
+
+	recorded := fixture.events.recorded()
+	if len(recorded) != 1 || recorded[0].Chat == nil {
+		t.Fatalf("events: got %v, want one chat event", fixture.events.types())
+	}
+
+	snapshot := recorded[0].Chat
+	if snapshot == chat {
+		t.Fatal("событие не должно ссылаться на живой чат")
+	}
+
+	if snapshot.FinishedAt == chat.FinishedAt {
+		t.Fatal("FinishedAt должен копироваться, а не разделяться по указателю")
+	}
+
+	finishedAt := *chat.FinishedAt
+
+	chat.Score = 999
+	*chat.FinishedAt = time.Unix(0, 0).UTC()
+
+	if snapshot.Score != 20 {
+		t.Fatalf("snapshot score: got %d, want 20", snapshot.Score)
+	}
+
+	if !snapshot.FinishedAt.Equal(finishedAt) {
+		t.Fatalf("snapshot finished at: got %v, want %v", snapshot.FinishedAt, finishedAt)
+	}
+}
+
 func TestAbandonChat_RejectsChatOfAnotherUser(t *testing.T) {
 	fixture := newFixture(t, "start")
 
@@ -430,6 +496,72 @@ func TestStartChat_PositionsChatOnStartNode(t *testing.T) {
 	}
 }
 
+func TestStartChat_RejectsTitleLongerThanLimit(t *testing.T) {
+	fixture := newFixture(t, "start")
+	title := strings.Repeat("я", chatdomain.MaxChatTitleLength+1)
+
+	_, err := fixture.service.StartChat(context.Background(), 42, 7, title)
+	if !errors.Is(err, chatdomain.ErrTitleTooLong) {
+		t.Fatalf("got %v, want %v", err, chatdomain.ErrTitleTooLong)
+	}
+
+	if got := len(fixture.messages.created); got != 0 {
+		t.Fatalf("отклонённый чат не должен заводить сообщений, got %d", got)
+	}
+}
+
+func TestStartChat_MeasuresTitleLimitInRunesNotBytes(t *testing.T) {
+	fixture := newFixture(t, "start")
+	title := strings.Repeat("я", chatdomain.MaxChatTitleLength)
+
+	if len(title) <= chatdomain.MaxChatTitleLength {
+		t.Fatalf("кириллица должна занимать больше байт, чем рун: %d байт", len(title))
+	}
+
+	chat, err := fixture.service.StartChat(context.Background(), 42, 7, title)
+	if err != nil {
+		t.Fatalf("заголовок ровно в лимит рун должен приниматься: %v", err)
+	}
+
+	if chat.Title != title {
+		t.Fatalf("title: got %q, want %q", chat.Title, title)
+	}
+}
+
+func TestRunAgentTurn_ClampsHistoryLimitToCursorMax(t *testing.T) {
+	fixture := newFixtureWith(t, "start", Options{HistoryLimit: chatdomain.MaxCursorLimit + 1})
+	fixture.agent.replies = []*agent.Reply{{Content: "Ага"}}
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
+	}
+
+	if len(fixture.messages.cursors) == 0 {
+		t.Fatal("ход агента должен читать историю чата")
+	}
+
+	if got := fixture.messages.cursors[0].Limit; got != chatdomain.MaxCursorLimit {
+		t.Fatalf("history cursor limit: got %d, want %d", got, chatdomain.MaxCursorLimit)
+	}
+}
+
+func TestRunAgentTurn_UsesDefaultHistoryLimitWhenUnset(t *testing.T) {
+	fixture := newFixture(t, "start")
+	fixture.agent.replies = []*agent.Reply{{Content: "Ага"}}
+
+	if err := fixture.service.RunAgentTurn(context.Background(), 1); err != nil {
+		t.Fatalf("run agent turn: %v", err)
+	}
+
+	if len(fixture.messages.cursors) == 0 {
+		t.Fatal("ход агента должен читать историю чата")
+	}
+
+	if got := fixture.messages.cursors[0].Limit; got != defaultHistoryLimit {
+		t.Fatalf("history cursor limit: got %d, want %d", got, defaultHistoryLimit)
+	}
+}
+
 type fixture struct {
 	service   *Service
 	chats     *fakeChatRepository
@@ -442,6 +574,12 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T, currentNodeID string) *fixture {
+	t.Helper()
+
+	return newFixtureWith(t, currentNodeID, Options{})
+}
+
+func newFixtureWith(t *testing.T, currentNodeID string, options Options) *fixture {
 	t.Helper()
 
 	chats := &fakeChatRepository{chat: &chatdomain.Chat{
@@ -472,7 +610,7 @@ func newFixture(t *testing.T, currentNodeID string) *fixture {
 			events,
 			awards,
 			chatAgent,
-			Options{},
+			options,
 		),
 		chats:     chats,
 		decisions: decisions,
@@ -647,12 +785,19 @@ func (f *fakeChatRepository) Delete(context.Context, int64) error {
 
 type fakeMessageRepository struct {
 	created   []*chatdomain.Message
+	cursors   []chatdomain.Cursor
 	createErr error
 }
 
 func (f *fakeMessageRepository) ListByChatID(
-	context.Context, int64, chatdomain.Cursor,
+	_ context.Context, _ int64, cursor chatdomain.Cursor,
 ) ([]*chatdomain.Message, error) {
+	f.cursors = append(f.cursors, cursor)
+
+	if err := cursor.Validate(); err != nil {
+		return nil, err
+	}
+
 	return f.created, nil
 }
 

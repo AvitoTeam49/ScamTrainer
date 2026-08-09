@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/AvitoTeam49/ScamTrainer/backend/internal/agent"
 	chatdomain "github.com/AvitoTeam49/ScamTrainer/backend/internal/domain/chat"
@@ -24,8 +25,6 @@ type EventPublisher interface {
 	Publish(ctx context.Context, event chatdomain.Event)
 }
 
-// ScoreAwarder начисляет пользователю дельту очков. Сколько именно начислить
-// и когда — решает чат, снаружи про сценарии и чаты ничего не известно.
 type ScoreAwarder interface {
 	UpdateUserScore(ctx context.Context, userID int64, scoreDelta int) error
 }
@@ -65,6 +64,9 @@ func New(
 	if options.HistoryLimit <= 0 {
 		options.HistoryLimit = defaultHistoryLimit
 	}
+	if options.HistoryLimit > chatdomain.MaxCursorLimit {
+		options.HistoryLimit = chatdomain.MaxCursorLimit
+	}
 	if options.MaxToolRounds <= 0 {
 		options.MaxToolRounds = defaultMaxToolRounds
 	}
@@ -86,6 +88,11 @@ func New(
 }
 
 func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title string) (*chatdomain.Chat, error) {
+	title = strings.TrimSpace(title)
+	if utf8.RuneCountInString(title) > chatdomain.MaxChatTitleLength {
+		return nil, chatdomain.ErrTitleTooLong
+	}
+
 	scenario, err := s.scenarios.GetById(ctx, int(scenarioID))
 	if err != nil {
 		return nil, err
@@ -96,7 +103,7 @@ func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title
 		return nil, err
 	}
 
-	if strings.TrimSpace(title) == "" {
+	if title == "" {
 		title = scenario.Title
 	}
 
@@ -106,8 +113,6 @@ func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title
 	}
 
 	if err := s.openingMessage(ctx, chat, started.Node); err != nil {
-		// Общей транзакции у двух репозиториев нет, а чат без завязки бесполезен:
-		// откатываем его сами, чтобы у пользователя не осталось пустого чата.
 		if dropErr := s.chats.Delete(ctx, chat.ID); dropErr != nil {
 			slog.ErrorContext(ctx, "failed to drop chat without opening message",
 				"chat_id", chat.ID, "error", dropErr)
@@ -119,7 +124,6 @@ func (s *Service) StartChat(ctx context.Context, userID, scenarioID int64, title
 	return chat, nil
 }
 
-// Первая реплика берётся из самого сценария, поэтому пользователь сразу видит завязку.
 func (s *Service) openingMessage(ctx context.Context, chat *chatdomain.Chat, node *scenariodomain.Node) error {
 	text := strings.TrimSpace(node.Message.Text)
 	if text == "" {
@@ -141,8 +145,13 @@ func (s *Service) openingMessage(ctx context.Context, chat *chatdomain.Chat, nod
 }
 
 func (s *Service) SendMessage(ctx context.Context, chatID, userID int64, content string) (*chatdomain.Message, error) {
-	if strings.TrimSpace(content) == "" {
+	content = strings.TrimSpace(content)
+	if content == "" {
 		return nil, chatdomain.ErrMessageEmpty
+	}
+
+	if utf8.RuneCountInString(content) > chatdomain.MaxMessageLength {
+		return nil, chatdomain.ErrMessageTooLong
 	}
 
 	chat, err := s.ownedChat(ctx, chatID, userID)
@@ -189,7 +198,6 @@ func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
 		return s.fail(ctx, chatID, err)
 	}
 
-	// Чат мог завершиться, пока этот ход ждал предыдущего.
 	if !chat.IsActive() {
 		return nil
 	}
@@ -214,7 +222,6 @@ func (s *Service) RunAgentTurn(ctx context.Context, chatID int64) error {
 		return s.fail(ctx, chatID, err)
 	}
 
-	// Завершиться сценарий мог одним вызовом инструмента, без единого слова от модели.
 	if reply == "" {
 		return nil
 	}
@@ -260,8 +267,6 @@ func failureReason(err error) string {
 	return genericFailureReason
 }
 
-// AbandonChat закрывает тренировку по воле пользователя. Очки не начисляются:
-// брошенный сценарий не пройден, а накопленный счёт чата остаётся для истории.
 func (s *Service) AbandonChat(ctx context.Context, chatID, userID int64) (*chatdomain.Chat, error) {
 	chat, err := s.ownedChat(ctx, chatID, userID)
 	if err != nil {
@@ -387,8 +392,6 @@ func (s *Service) runAgent(
 		return content, nil
 	}
 
-	// Модель часто отвечает одним tool-call'ом без текста. Если сценарий на этом закончился,
-	// закрывающую реплику берём из вершины-концовки, а не считаем ход сломанным.
 	if !chat.IsActive() {
 		return endingMessage(scenario, chat.CurrentNodeID), nil
 	}
@@ -499,7 +502,6 @@ func (s *Service) finishChat(ctx context.Context, chat *chatdomain.Chat, argumen
 	return fmt.Sprintf("chat finished with score %d", chat.Score), nil
 }
 
-// finish завершает чат ровно один раз: параллельный ход агента получит false и уйдёт без событий.
 func (s *Service) finish(ctx context.Context, chat *chatdomain.Chat, resume string) error {
 	if err := chat.Finish(resume); err != nil {
 		return err
@@ -521,7 +523,6 @@ func (s *Service) finish(ctx context.Context, chat *chatdomain.Chat, resume stri
 	return nil
 }
 
-// Чат уже завершён и сохранён, поэтому неудачное начисление не должно ронять ход агента.
 func (s *Service) award(ctx context.Context, chat *chatdomain.Chat) {
 	if err := s.awards.UpdateUserScore(ctx, chat.UserID, int(chat.Score)); err != nil {
 		slog.ErrorContext(ctx, "failed to award chat score",
@@ -529,7 +530,6 @@ func (s *Service) award(ctx context.Context, chat *chatdomain.Chat) {
 	}
 }
 
-// Сессии тренировки живут в памяти, поэтому после рестарта их восстанавливаем из строки чата.
 func (s *Service) restoreSession(ctx context.Context, chat *chatdomain.Chat) error {
 	_, err := s.sessions.GetById(ctx, chat.SessionID)
 	if err == nil {
