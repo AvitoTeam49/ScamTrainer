@@ -37,4 +37,4 @@ in-process pub/sub для SSE, `internal/config`.
 **Раскладка неоднородна.** `chat` и `users` разложены по слоям — domain / usecase /
 transport / repository. `auth`, `training`, `middleware` — плоские пакеты. Это следствие
 решения не переписывать чужие пакеты при слиянии веток; зафиксировано в
-`backend/docs/chat.md`, §5.
+`backend/docs/chat.md`, §6.

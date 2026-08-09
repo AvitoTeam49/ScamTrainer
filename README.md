@@ -59,5 +59,6 @@ sqlc generate   # после правок queries.sql
 | Цель, стек, карта доменов | `AGENT.MD` |
 | Домен чатов: контракты, решения, техдолг | `backend/docs/chat.md` |
 | Полный HTTP-контракт и коды ошибок | `backend/docs/chat.md`, §4 |
+| Как устроены тесты и что не покрыто | `backend/docs/chat.md`, §5 |
 | Сценарии обмана | `backend/scenarios/*.yaml` |
 | Схема БД | `backend/migrations/migrations` |
