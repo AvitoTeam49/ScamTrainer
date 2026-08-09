@@ -41,6 +41,8 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+const AccessTokenCookie = "access_token"
+
 func (a *authHandler) respondJSON(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
