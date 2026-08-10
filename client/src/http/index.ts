@@ -3,11 +3,28 @@ import axios from "axios";
 export const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 const AUTH_PATHS = ["/auth/login", "/auth/register", "/auth/refresh"];
+const AUTH_ROUTE = "/auth";
 
 const $api = axios.create({
     baseURL: API_URL,
     withCredentials: true
 });
+
+let loggingOut = false;
+
+export const forceLogout = () => {
+    if (loggingOut) {
+        return;
+    }
+
+    loggingOut = true;
+
+    localStorage.removeItem("token");
+
+    if (window.location.pathname !== AUTH_ROUTE) {
+        window.location.replace(AUTH_ROUTE);
+    }
+};
 
 let refreshRequest: Promise<string> | null = null;
 
@@ -21,6 +38,13 @@ export const refreshAccessToken = (): Promise<string> => {
                 localStorage.setItem("token", token);
 
                 return token;
+            })
+            .catch(error => {
+                if (axios.isAxiosError(error) && error.response?.status === 401) {
+                    forceLogout();
+                }
+
+                throw error;
             })
             .finally(() => {
                 refreshRequest = null;
@@ -47,7 +71,7 @@ $api.interceptors.response.use(
     async error => {
         const originalRequest = error.config;
 
-        if (error.response?.status !== 401 || !originalRequest || originalRequest._isRetry) {
+        if (error.response?.status !== 401 || !originalRequest) {
             throw error;
         }
 
@@ -57,22 +81,19 @@ $api.interceptors.response.use(
             throw error;
         }
 
+        if (originalRequest._isRetry) {
+            forceLogout();
+
+            throw error;
+        }
+
         originalRequest._isRetry = true;
 
-        try {
-            const token = await refreshAccessToken();
+        const token = await refreshAccessToken();
 
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+        originalRequest.headers.Authorization = `Bearer ${token}`;
 
-            return await $api.request(originalRequest);
-
-        } catch (refreshError) {
-            localStorage.removeItem("token");
-
-            window.location.href = "/auth";
-
-            throw refreshError;
-        }
+        return await $api.request(originalRequest);
     }
 );
 
