@@ -1,6 +1,6 @@
 import {type FC, useContext, useEffect, useState} from "react";
 import "./styles/app.css"
-import {Routes, Route} from "react-router-dom";
+import {Routes, Route, Navigate} from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import { Context } from "./main.tsx";
 import MainNewChat from "./components/MainNewChat.tsx";
@@ -30,6 +30,8 @@ const App: FC = observer(() => {
                 const authResult = await auth.checkAuth();
 
                 if (!authResult.success) {
+                    localStorage.removeItem("token");
+
                     auth.setAuth(false);
                     return;
                 }
@@ -64,7 +66,7 @@ const App: FC = observer(() => {
     return (
         <Routes>
 
-            <Route path="/auth" element={<Auth />}/>
+            <Route path="/auth" element={auth.isAuth ? <Navigate to="/" replace/> : <Auth />}/>
 
             <Route element={<ProtectedRoute isAllowed={auth.isAuth}/>}>
                 <Route path="/" element={<MainNewChat />}/>

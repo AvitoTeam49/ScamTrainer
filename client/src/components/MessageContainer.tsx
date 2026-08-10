@@ -3,7 +3,11 @@ import type { IMessage } from "../types/types.tsx";
 import {type FC, useContext, useEffect, useLayoutEffect, useRef} from "react";
 import { Context } from "../main.tsx";
 import { useParams } from "react-router-dom";
-import { API_URL } from "../http";
+import { API_URL, refreshAccessToken } from "../http";
+
+const SSE_EVENT_TYPES = ["message", "decision", "chat"];
+const SSE_REOPEN_DELAY = 3000;
+const SSE_MAX_REOPEN_ATTEMPTS = 5;
 
 const MessageContainer: FC = observer(() => {
     const {messages, chat, user} = useContext(Context);
@@ -66,7 +70,18 @@ const MessageContainer: FC = observer(() => {
             return;
         }
 
-        const eventSource = new EventSource(`${API_URL}/chats/${chatId}/events`, {withCredentials: true});
+        let source: EventSource | null = null;
+        let reopenTimer: number | undefined;
+        let reopenAttempts = 0;
+        let stopped = false;
+
+        const stop = () => {
+            stopped = true;
+
+            window.clearTimeout(reopenTimer);
+
+            source?.close();
+        };
 
         const handleEvent = (event: MessageEvent) => {
             try {
@@ -103,7 +118,7 @@ const MessageContainer: FC = observer(() => {
 
                             user.refreshAfterChat();
 
-                            eventSource.close();
+                            stop();
                         }
 
                         break;
@@ -114,15 +129,48 @@ const MessageContainer: FC = observer(() => {
             }
         };
 
-        const eventTypes = ["message", "decision", "chat"];
+        const open = () => {
+            if (stopped) {
+                return;
+            }
 
-        eventTypes.forEach(type => eventSource.addEventListener(type, handleEvent));
+            const current = new EventSource(`${API_URL}/chats/${chatId}/events`, {withCredentials: true});
 
-        return () => {
-            eventTypes.forEach(type => eventSource.removeEventListener(type, handleEvent));
+            source = current;
 
-            eventSource.close();
+            current.onopen = () => {
+                reopenAttempts = 0;
+            };
+
+            SSE_EVENT_TYPES.forEach(type => current.addEventListener(type, handleEvent));
+
+            current.onerror = () => {
+                if (current.readyState !== EventSource.CLOSED) {
+                    return;
+                }
+
+                current.close();
+
+                if (stopped || reopenAttempts >= SSE_MAX_REOPEN_ATTEMPTS) {
+                    return;
+                }
+
+                reopenAttempts += 1;
+
+                reopenTimer = window.setTimeout(
+                    () => {
+                        refreshAccessToken()
+                            .catch(() => undefined)
+                            .then(open);
+                    },
+                    SSE_REOPEN_DELAY
+                );
+            };
         };
+
+        open();
+
+        return stop;
 
     }, [id, messages, chat, user]);
 
