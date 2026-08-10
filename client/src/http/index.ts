@@ -3,6 +3,7 @@ import axios from "axios";
 export const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 const AUTH_PATHS = ["/auth/login", "/auth/register", "/auth/refresh"];
+const PROFILE_PATH = "/users/me";
 const AUTH_ROUTE = "/auth";
 
 const $api = axios.create({
@@ -71,11 +72,22 @@ $api.interceptors.response.use(
     async error => {
         const originalRequest = error.config;
 
-        if (error.response?.status !== 401 || !originalRequest) {
+        if (!originalRequest) {
             throw error;
         }
 
+        const status = error.response?.status;
         const url = originalRequest.url ?? "";
+
+        if (status === 404 && url.startsWith(PROFILE_PATH)) {
+            forceLogout();
+
+            throw error;
+        }
+
+        if (status !== 401) {
+            throw error;
+        }
 
         if (AUTH_PATHS.some(path => url.startsWith(path))) {
             throw error;
