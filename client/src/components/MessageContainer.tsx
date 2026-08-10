@@ -68,7 +68,7 @@ const MessageContainer: FC = observer(() => {
 
         const eventSource = new EventSource(`${API_URL}/chats/${chatId}/events`, {withCredentials: true});
 
-        const handleMessage = (event: MessageEvent) => {
+        const handleEvent = (event: MessageEvent) => {
             try {
                 const data = JSON.parse(event.data);
 
@@ -114,11 +114,13 @@ const MessageContainer: FC = observer(() => {
             }
         };
 
-        eventSource.addEventListener("message", handleMessage);
+        const eventTypes = ["message", "decision", "chat"];
 
-        eventSource.onerror = () => {eventSource.close();};
+        eventTypes.forEach(type => eventSource.addEventListener(type, handleEvent));
 
         return () => {
+            eventTypes.forEach(type => eventSource.removeEventListener(type, handleEvent));
+
             eventSource.close();
         };
 
