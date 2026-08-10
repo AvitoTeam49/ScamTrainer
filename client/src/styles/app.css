@@ -281,6 +281,16 @@ button {
     font-weight: 600;
 }
 
+.chat-list-loader {
+    padding: 12px 14px;
+
+    font-size: 13px;
+
+    color: #8b9298;
+
+    text-align: center;
+}
+
 
 .chat-area {
     flex: 1;
@@ -478,6 +488,16 @@ button {
 .messages-container::-webkit-scrollbar-thumb {
     background: #d2d6da;
     border-radius: 10px;
+}
+
+.messages-loader {
+    flex-shrink: 0;
+
+    align-self: center;
+
+    font-size: 13px;
+
+    color: #8b9298;
 }
 
 

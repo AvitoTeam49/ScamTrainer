@@ -2,13 +2,15 @@ import $api from "../http";
 import type {AxiosResponse} from "axios";
 import type {IChat, IListChats, IListDecision, IListMessage, IMessage} from "../types/types.tsx";
 
+export const PAGE_SIZE = 50;
+
 export default class ChatService {
 
     static async createChat(scenario_id: number, title: string): Promise<AxiosResponse<IChat>> {
         return $api.post<IChat>("/chats", {scenario_id, title});
     }
 
-    static async getChats(limit: number = 50,  afterId: number = 0): Promise<AxiosResponse<IListChats>>{
+    static async getChats(limit: number = PAGE_SIZE, afterId: number = 0): Promise<AxiosResponse<IListChats>>{
 
         return $api.get<IListChats>("/chats", {
             params: {
@@ -30,7 +32,7 @@ export default class ChatService {
         return $api.post<IMessage>(`/chats/${chatId}/messages`, {content});
     }
 
-    static async getMessages(chatId: number, limit: number = 50,  afterId: number = 0): Promise<AxiosResponse<IListMessage>> {
+    static async getMessages(chatId: number, limit: number = PAGE_SIZE, afterId: number = 0): Promise<AxiosResponse<IListMessage>> {
         return $api.get<IListMessage>(`/chats/${chatId}/messages`, {
             params: {
                 limit,
@@ -39,7 +41,7 @@ export default class ChatService {
         })
     }
 
-    static async getDecisions(chatId: number, limit: number = 50,  afterId: number = 0): Promise<AxiosResponse<IListDecision>> {
+    static async getDecisions(chatId: number, limit: number = PAGE_SIZE, afterId: number = 0): Promise<AxiosResponse<IListDecision>> {
         return $api.get<IListDecision>(`/chats/${chatId}/decisions`, {
             params: {
                 limit,

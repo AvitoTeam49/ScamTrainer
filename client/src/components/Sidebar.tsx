@@ -1,7 +1,7 @@
 import {observer} from "mobx-react-lite";
 import type {IChat} from "../types/types.tsx";
 import {useNavigate} from "react-router-dom";
-import {useContext} from "react";
+import {type UIEvent, useContext} from "react";
 import {Context} from "../main.tsx";
 
 
@@ -13,6 +13,20 @@ const Sidebar= observer(({id}: SidebarProps) => {
 
     const navigate = useNavigate()
     const {menuOpen, chat} = useContext(Context)
+
+    const loadMoreThreshold = 120;
+
+    const handleScroll = (event: UIEvent<HTMLUListElement>) => {
+        const list = event.currentTarget;
+
+        const distanceToBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+
+        if (distanceToBottom > loadMoreThreshold || !chat.hasMoreChats || chat.isLoadingChats) {
+            return;
+        }
+
+        chat.loadMoreChats();
+    };
 
     return (
         <div className={`sidebar ${menuOpen.menu ? 'open' : ''}`}>
@@ -32,11 +46,15 @@ const Sidebar= observer(({id}: SidebarProps) => {
                 <span>+</span> Новый чат
             </button>
 
-            <ul className="chat-list">
+            <ul className="chat-list" onScroll={handleScroll}>
                 {chat.chats.map((ch: IChat) => (
                     <li key={ch.id}
                         className={`chat-item ${String(ch.id) === id ? "active" : ""}`} onClick={() => navigate(`/chat/${ch.id}`)}>{ch.title}</li>
                 ))}
+
+                {chat.isLoadingChats && (
+                    <li className="chat-list-loader">Загружаем чаты…</li>
+                )}
             </ul>
         </div>
     );

@@ -1,15 +1,21 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { IChat, IDecision } from "../types/types.tsx";
-import ChatService from "../services/ChatService.ts";
+import ChatService, { PAGE_SIZE } from "../services/ChatService.ts";
 import axios from "axios";
 
 class Chat {
     chats: IChat[] = [];
     currentChat: IChat | null = null;
     decision: IDecision[] = [];
+    chatsNextAfterId: number | null = null;
+    isLoadingChats: boolean = false;
 
     constructor() {
         makeAutoObservable(this);
+    }
+
+    get hasMoreChats() {
+        return this.chatsNextAfterId !== null;
     }
 
     setCurrentChat(chat: IChat | null) {
@@ -73,12 +79,42 @@ class Chat {
             const response = await ChatService.getChats();
 
             runInAction(() => {
-                this.chats = [...response.data.items].reverse();
+                this.chats = response.data.items;
+                this.chatsNextAfterId = response.data.next_after_id ?? null;
             });
 
             return {success: true};
         } catch (e) {
             return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
+        }
+    }
+
+    async loadMoreChats(): Promise<{ success: boolean; status?: number}> {
+        const afterId = this.chatsNextAfterId;
+
+        if (afterId === null || this.isLoadingChats) {
+            return {success: true};
+        }
+
+        this.isLoadingChats = true;
+
+        try {
+            const response = await ChatService.getChats(PAGE_SIZE, afterId);
+
+            runInAction(() => {
+                const known = new Set(this.chats.map(chat => chat.id));
+
+                const older = response.data.items.filter(chat => !known.has(chat.id));
+
+                this.chats = [...this.chats, ...older];
+                this.chatsNextAfterId = response.data.next_after_id ?? null;
+            });
+
+            return {success: true};
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
+        } finally {
+            runInAction(() => {this.isLoadingChats = false;});
         }
     }
 

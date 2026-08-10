@@ -14,7 +14,7 @@ export interface IChat{
 
 export interface IListChats{
     items: IChat[];
-    next_after_id: number;
+    next_after_id: number | null;
 }
 
 export interface IMessage{
@@ -27,7 +27,7 @@ export interface IMessage{
 
 export interface IListMessage{
     items: IMessage[];
-    next_after_id: number;
+    next_after_id: number | null;
 }
 
 export interface IDecision{
@@ -43,7 +43,7 @@ export interface IDecision{
 
 export interface IListDecision{
     items: IDecision[];
-    next_after_id: number;
+    next_after_id: number | null;
 }
 
 export interface IScenario{

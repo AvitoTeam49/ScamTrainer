@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import type { IMessage } from "../types/types.tsx";
-import {type FC, useContext, useEffect, useRef} from "react";
+import {type FC, useContext, useEffect, useLayoutEffect, useRef} from "react";
 import { Context } from "../main.tsx";
 import { useParams } from "react-router-dom";
 
@@ -10,10 +10,55 @@ const MessageContainer: FC = observer(() => {
     const { id } = useParams<{ id: string }>();
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+
+    // Расстояние от низа списка, запомненное перед подгрузкой старой страницы:
+    // по нему восстанавливаем позицию скролла, когда сообщения допишутся сверху.
+    const offsetFromBottomRef = useRef<number | null>(null);
+    const lastScrollTopRef = useRef(0);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     };
+
+    const loadOlderThreshold = 120;
+
+    const handleScroll = () => {
+        const container = containerRef.current;
+
+        if (!container || !id) {
+            return;
+        }
+
+        const chatId = Number(id);
+
+        if (!Number.isFinite(chatId)) {
+            return;
+        }
+
+        const previousScrollTop = lastScrollTopRef.current;
+
+        lastScrollTopRef.current = container.scrollTop;
+
+        // Тянем историю только когда скроллят вверх: автоскролл к последнему
+        // сообщению тоже проходит через верх списка, но подгружать там нечего.
+        if (container.scrollTop > previousScrollTop) {
+            return;
+        }
+
+        if (container.scrollTop > loadOlderThreshold || !messages.hasMore || messages.isLoadingMore) {
+            return;
+        }
+
+        offsetFromBottomRef.current = container.scrollHeight - container.scrollTop;
+
+        messages.loadMoreMessages(chatId);
+    };
+
+    useEffect(() => {
+        lastScrollTopRef.current = 0;
+        offsetFromBottomRef.current = null;
+    }, [id]);
 
     useEffect(() => {
         if (!id) {return;}
@@ -82,9 +127,31 @@ const MessageContainer: FC = observer(() => {
 
     }, [id, messages, chat, user]);
 
+    const firstMessageId = messages.messages[0]?.id ?? null;
+    const lastMessageId = messages.messages[messages.messages.length - 1]?.id ?? null;
+
+    // Вниз скроллим только когда появилось новое сообщение в конце списка,
+    // а не когда сверху добавилась страница истории.
     useEffect(() => {
         scrollToBottom();
-    }, [messages.messages.length]);
+    }, [lastMessageId]);
+
+    useLayoutEffect(() => {
+        const container = containerRef.current;
+        const offsetFromBottom = offsetFromBottomRef.current;
+
+        if (!container || offsetFromBottom === null) {
+            return;
+        }
+
+        // Отсчитываем от низа: всё, что дописалось сверху (история и лоадер),
+        // не сдвигает то, что пользователь видит сейчас.
+        container.scrollTop = container.scrollHeight - offsetFromBottom;
+
+        if (!messages.isLoadingMore) {
+            offsetFromBottomRef.current = null;
+        }
+    }, [firstMessageId, messages.isLoadingMore]);
 
     const formatTime = (date: string) => {
         return new Date(date).toLocaleTimeString(
@@ -97,7 +164,11 @@ const MessageContainer: FC = observer(() => {
     };
 
     return (
-        <div className="messages-container">
+        <div className="messages-container" ref={containerRef} onScroll={handleScroll}>
+
+            {messages.isLoadingMore && (
+                <div className="messages-loader">Загружаем историю…</div>
+            )}
 
             {messages.messages.map(
                 (mess: IMessage) => (
