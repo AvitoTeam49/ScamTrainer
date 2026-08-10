@@ -7,6 +7,7 @@ class Chat {
     chats: IChat[] = [];
     currentChat: IChat | null = null;
     decision: IDecision[] = [];
+    warnings: IDecision[] = [];
     chatsNextAfterId: number | null = null;
     isLoadingChats: boolean = false;
 
@@ -25,6 +26,13 @@ class Chat {
 
     clearDecision() {
         this.decision = [];
+        this.warnings = [];
+    }
+
+    dismissWarning(warningId: number) {
+        this.warnings = this.warnings.filter(
+            warning => warning.id !== warningId
+        );
     }
 
     updateChatInList(updatedChat: IChat) {
@@ -51,6 +59,7 @@ class Chat {
                 this.chats = [newChat, ...this.chats];
                 this.currentChat = newChat;
                 this.decision = [];
+                this.warnings = [];
             });
 
             return {success: true, chat: newChat};
@@ -66,6 +75,7 @@ class Chat {
             runInAction(() => {
                 this.currentChat = response.data;
                 this.decision = [];
+                this.warnings = [];
             });
 
             return {success: true, chat: response.data};
@@ -154,9 +164,13 @@ class Chat {
         });
     }
 
-    handleSSEDecision(decision: IDecision[]) {
+    handleSSEDecision(decision: IDecision) {
         runInAction(() => {
-            this.decision = decision;
+            if (this.warnings.some(warning => warning.id === decision.id)) {
+                return;
+            }
+
+            this.warnings = [...this.warnings, decision];
         });
     }
 }
