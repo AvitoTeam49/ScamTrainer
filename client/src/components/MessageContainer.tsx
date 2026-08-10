@@ -3,6 +3,7 @@ import type { IMessage } from "../types/types.tsx";
 import {type FC, useContext, useEffect, useLayoutEffect, useRef} from "react";
 import { Context } from "../main.tsx";
 import { useParams } from "react-router-dom";
+import { API_URL } from "../http";
 
 const MessageContainer: FC = observer(() => {
     const {messages, chat, user} = useContext(Context);
@@ -12,8 +13,6 @@ const MessageContainer: FC = observer(() => {
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
-    // Расстояние от низа списка, запомненное перед подгрузкой старой страницы:
-    // по нему восстанавливаем позицию скролла, когда сообщения допишутся сверху.
     const offsetFromBottomRef = useRef<number | null>(null);
     const lastScrollTopRef = useRef(0);
 
@@ -40,8 +39,6 @@ const MessageContainer: FC = observer(() => {
 
         lastScrollTopRef.current = container.scrollTop;
 
-        // Тянем историю только когда скроллят вверх: автоскролл к последнему
-        // сообщению тоже проходит через верх списка, но подгружать там нечего.
         if (container.scrollTop > previousScrollTop) {
             return;
         }
@@ -69,7 +66,7 @@ const MessageContainer: FC = observer(() => {
             return;
         }
 
-        const eventSource = new EventSource(`http://localhost:8080/api/v1/chats/${chatId}/events`);
+        const eventSource = new EventSource(`${API_URL}/chats/${chatId}/events`, {withCredentials: true});
 
         const handleMessage = (event: MessageEvent) => {
             try {
@@ -130,8 +127,6 @@ const MessageContainer: FC = observer(() => {
     const firstMessageId = messages.messages[0]?.id ?? null;
     const lastMessageId = messages.messages[messages.messages.length - 1]?.id ?? null;
 
-    // Вниз скроллим только когда появилось новое сообщение в конце списка,
-    // а не когда сверху добавилась страница истории.
     useEffect(() => {
         scrollToBottom();
     }, [lastMessageId]);
@@ -144,8 +139,6 @@ const MessageContainer: FC = observer(() => {
             return;
         }
 
-        // Отсчитываем от низа: всё, что дописалось сверху (история и лоадер),
-        // не сдвигает то, что пользователь видит сейчас.
         container.scrollTop = container.scrollHeight - offsetFromBottom;
 
         if (!messages.isLoadingMore) {

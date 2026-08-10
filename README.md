@@ -44,8 +44,17 @@ LLM-агент, играющий мошенника. Агент не импро�
 ## Структура проекта
 
 ```
-docker-compose.yml            postgres + app, миграции на старте
+docker-compose.yml            postgres + backend + frontend, миграции на старте
+.env.example                  переменные окружения для compose
 AGENT.MD                      продуктовая цель, стек, карта доменов
+client/
+  Dockerfile                  сборка Vite → раздача статики nginx
+  nginx.conf                  SPA + проксирование /api в backend (в том числе SSE)
+  src/
+    components/               экраны и элементы UI
+    store/                    MobX-сторы: auth · chat · messages · scenario · user
+    services/                 обёртки над HTTP-эндпоинтами
+    http/                     axios-инстанс: токен в заголовке, refresh на 401
 backend/
   cmd/app/main.go             точка сборки: конфиг, пул, DI, роутер, graceful shutdown
   migrations/migrations/      0001_auth · 0002_users · 0003_chat
@@ -377,21 +386,32 @@ consumer-side интерфейс `ScoreAwarder`. Совпал с существ�
 ## Запуск
 
 ```bash
-echo "DEEPSEEK_API_KEY=<ключ>" > .env
+cp .env.example .env   # заполнить JWT_SECRET и DEEPSEEK_API_KEY
 docker compose up --build
 ```
 
-Миграции накатываются на старте. API — `http://localhost:8080/api`, проверка живости —
-`GET http://localhost:8080/healthz` (пингует Postgres, отдаёт `503`, если база недоступна).
+Поднимается три сервиса: `postgres`, `backend` и `frontend` (сборка Vite, отдача через
+nginx). Наружу торчит только `frontend` — приложение на `http://localhost`, API под тем же
+origin на `/api`, проверка живости — `GET /healthz`. Порт меняется через `FRONTEND_PORT`.
 
-Обязательная переменная одна — `DEEPSEEK_API_KEY`. У `JWT_SECRET`, `DEEPSEEK_BASE_URL`
-и `DEEPSEEK_MODEL` есть dev-значения по умолчанию; `JWT_SECRET` перед публичным деплоем
-нужно задать своим.
+Postgres и backend доступны только внутри сети compose. Чтобы постучаться в них напрямую
+при отладке, добавьте сервису `ports: ["8080:8080"]`.
+
+Миграции накатываются на старте.
+
+Обязательных переменных две — `JWT_SECRET` и `DEEPSEEK_API_KEY`, дефолтов у них нет.
+У `POSTGRES_*`, `FRONTEND_PORT`, `DEEPSEEK_BASE_URL` и `DEEPSEEK_MODEL` значения по
+умолчанию есть.
+
+Фронтенд ходит в API относительным путём, поэтому CORS не участвует: nginx проксирует
+`/api/` в backend, включая SSE (`proxy_buffering off`). В dev-режиме (`npm run dev`) то же
+самое делает прокси Vite, backend при этом ждут на `http://localhost:8080` —
+адрес переопределяется через `VITE_BACKEND_URL`.
 
 ## Проверка
 
 ```bash
-API=http://localhost:8080/api/v1
+API=http://localhost/api/v1
 
 curl -X POST $API/auth/register -H 'Content-Type: application/json' \
   -d '{"email":"trainee@example.com","password":"supersecret"}'
@@ -421,6 +441,13 @@ cd backend
 go build ./... && go vet ./... && go test ./...
 golangci-lint run ./...
 sqlc generate   # после правок queries.sql
+```
+
+```bash
+cd client
+npm ci
+npm run dev     # прокси на backend по /api
+npm run build && npm run lint
 ```
 
 ## Куда смотреть
