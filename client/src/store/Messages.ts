@@ -1,43 +1,53 @@
-import type {IMessage} from "../types/types.tsx";
-import {makeAutoObservable} from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
+import type { IMessage } from "../types/types.tsx";
 import ChatService from "../services/ChatService.ts";
 import axios from "axios";
 
-
 class Messages {
-    messages: IMessage[] = []
+    messages: IMessage[] = [];
 
     constructor() {
-        makeAutoObservable(this)
+        makeAutoObservable(this);
     }
 
-    setMessages(messages: IMessage[]) {
-        this.messages = messages;
+
+    clearMessages() {
+        this.messages = [];
     }
 
     addMessage(message: IMessage) {
-        this.messages.push(message);
+        const exists = this.messages.some(item => item.id === message.id);
+
+        if (exists) {
+            return;
+        }
+
+        this.messages = [...this.messages, message];
     }
 
-    async getMessages(chatId: number): Promise<{success: boolean, status?: number}> {
-        try{
+    async getMessages(chatId: number): Promise<{ success: boolean; status?: number; }> {
+        try {
             const response = await ChatService.getMessages(chatId);
-            this.setMessages([...response.data.items].reverse());
-            return {success: true}
-        }catch(e){
-            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
+
+            runInAction(() => {this.messages = [...response.data.items].reverse();});
+
+            return {success: true};
+
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
-    async sendMessage(chatId: number, content: string): Promise<{success: boolean, status?: number}> {
-        try{
-            await ChatService.sendMessage(chatId, content.trim());
-            return {success: true}
-        }catch(e){
-            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
+    async sendMessage(chatId: number, content: string): Promise<{ success: boolean; status?: number; }> {
+        try {
+             await ChatService.sendMessage(chatId, content.trim());
+
+            return {success: true};
+
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
-
 }
 
 export default Messages;

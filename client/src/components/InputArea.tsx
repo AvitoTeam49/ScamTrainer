@@ -1,62 +1,46 @@
-import {
-    useState,
-    type KeyboardEvent,
-    type FC,
-    useContext
-} from "react";
-
-import {observer} from "mobx-react-lite";
-import {Context} from "../main.tsx";
-import {useParams} from "react-router-dom";
+import {useState, type KeyboardEvent, type FC, useContext} from "react";
+import { observer } from "mobx-react-lite";
+import { Context } from "../main.tsx";
+import { useParams } from "react-router-dom";
 
 const InputArea: FC = observer(() => {
-
     const [value, setValue] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
 
     const {messages, chat} = useContext(Context);
 
-    const {id} = useParams<{id: string}>();
+    const { id } = useParams<{ id: string }>();
 
-    const [isLoading, setIsLoading] = useState<boolean>(false)
+    const isChatFinished = chat.currentChat?.status === "finished" || chat.currentChat?.status === "abandoned";
 
     const handleSendMessage = async () => {
+        const content = value.trim();
 
-        setIsLoading(true)
-
-        if (!value.trim()) {
-            setIsLoading(false)
-            return;
-        }
-
-        if (!id) {
-            setIsLoading(false)
+        if (isLoading || !content || !id || isChatFinished) {
             return;
         }
 
         const chatId = Number(id);
 
-        if (chat.currentChat?.status === "finished" || chat.currentChat?.status === "abandon") {
-            setIsLoading(false)
+        if (!Number.isFinite(chatId)) {
             return;
         }
 
-        const result = await messages.sendMessage(
-            chatId,
-            value
-        );
+        setIsLoading(true);
 
-        if (result.success) {
-            setValue("");
+        try {
+            const result = await messages.sendMessage(chatId, content);
+            if (result.success) {
+                setValue("");
+            }
+
+        } finally {
+            setIsLoading(false);
         }
-
-        setIsLoading(false)
     };
 
-    const handleKeyDown = (
-        e: KeyboardEvent<HTMLInputElement>
-    ) => {
-
-        if (e.key === "Enter") {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage();
         }
@@ -66,7 +50,6 @@ const InputArea: FC = observer(() => {
         <div className="input-area">
 
             <div className="input-wrapper">
-
                 <input
                     value={value}
                     onChange={e =>
@@ -74,16 +57,15 @@ const InputArea: FC = observer(() => {
                     }
                     onKeyDown={handleKeyDown}
                     type="text"
-                    placeholder="Сообщение"
-                    disabled={isLoading}
+                    placeholder={isChatFinished ? "Чат завершен" : "Сообщение"}
+                    disabled={isLoading || isChatFinished}
                 />
-
             </div>
 
             <button
                 className="send-btn"
                 onClick={handleSendMessage}
-                disabled={isLoading}
+                disabled={isLoading || isChatFinished || !value.trim()}
             >
                 <svg
                     width="20"
@@ -102,7 +84,9 @@ const InputArea: FC = observer(() => {
                         y2="5"
                     />
 
-                    <polyline points="5 12 12 5 19 12" />
+                    <polyline
+                        points="5 12 12 5 19 12"
+                    />
                 </svg>
             </button>
 

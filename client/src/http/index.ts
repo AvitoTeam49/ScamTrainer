@@ -1,40 +1,51 @@
-import axios from 'axios';
-import type {LoginResponse} from "../types/types.tsx";
+import axios from "axios";
 
-export const API_URL = 'http://localhost:8080/api/v1';
-
+export const API_URL =
+    "http://localhost:8080/api/v1";
 
 const $api = axios.create({
-    withCredentials: true,
-    baseURL: API_URL
-})
+    baseURL: API_URL,
+    withCredentials: true
+});
 
 $api.interceptors.request.use(config => {
-    config.headers.Authorization = `Bearer ${localStorage.getItem('token')}`;
-    return config;
-})
+    const token =
+        localStorage.getItem("token");
 
-
-$api.interceptors.response.use((config) => {
-    return config;
-}, async (error) => {
-    const originalRequest = error.config;
-    if (error.response?.status == 401 && error.config && !error.config._isRetry) {
-        originalRequest._isRetry = true
-        try {
-            const response = await axios.post<LoginResponse>(`${API_URL}/auth/refresh`,{},{withCredentials: true});
-            localStorage.setItem('token', response.data.access_token);
-            originalRequest.headers.Authorization = `Bearer ${response.data.access_token}`;
-            return $api.request(originalRequest);
-        } catch (e) {
-            localStorage.removeItem("token");
-            window.location.href = "/auth";
-            throw e;
-        }
+    if (token) {
+        config.headers.Authorization =
+            `Bearer ${token}`;
     }
-    throw error;
-})
+
+    return config;
+});
+
+$api.interceptors.response.use(
+    response => response,
+    async error => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && originalRequest && !originalRequest._isRetry) {
+            originalRequest._isRetry = true;
+            try {
+                const response = await axios.post(`${API_URL}/auth/refresh`, {}, {withCredentials: true});
+                const newToken = response.data.access_token;
+                localStorage.setItem("token", newToken);
+
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+                return $api.request(originalRequest);
+
+            } catch (refreshError) {
+                localStorage.removeItem("token");
+
+                window.location.href = "/auth";
+
+                throw refreshError;
+            }
+        }
+
+        throw error;
+    }
+);
 
 export default $api;
-
-

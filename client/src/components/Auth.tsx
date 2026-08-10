@@ -18,55 +18,85 @@ const Auth:FC = observer(() => {
     const {auth, user} = useContext(Context)
 
     const handleLogin = async () => {
-        setIsLoading(true)
-        setLoginError("");
-
-        const result = await auth.login(loginEmail,loginPassword)
-
-        if(!result.success){
-            if(result.status == 401) setLoginError("Неверная почта или пароль")
-            else setLoginError("Ошибка входа")
-            setIsLoading(false)
-            return
-        }
-
-        await user.getProfile()
-
-        navigate("/")
-
-        setIsLoading(false)
-        setLoginEmail("");
-        setLoginPassword("");
-    };
-
-    const handleRegister = async () => {
-        setIsLoading(true)
-        setRegisterError("");
-
-        const result= await auth.registration(registerEmail,registerPassword)
-
-        if(!result.success){
-            if(result.status == 400) setRegisterError("Неверный формат почты или невалидный пароль")
-            else if(result.status == 409) setRegisterError("Такой пользователь уже существует")
-            else setRegisterError("Ошибка Регистрации")
-            setIsLoading(false)
-            return
-        }
-
-        const loginResult = await auth.login(registerEmail, registerPassword)
-
-        if (!loginResult.success) {
-            setRegisterError("Регистрация успешна, но вход не выполнен");
+        if (isLoading) {
             return;
         }
 
-        await user.createProfile(registerEmail)
+        setIsLoading(true);
+        setLoginError("");
 
-        navigate("/")
+        try {
+            const result = await auth.login(loginEmail, loginPassword);
 
-        setIsLoading(false)
-        setRegisterEmail("");
-        setRegisterPassword("");
+            if (!result.success) {
+                if (result.status === 401) {
+                    setLoginError("Неверная почта или пароль");
+                } else {
+                    setLoginError("Ошибка входа");
+                }
+                return;
+            }
+
+            const profileResult = await user.getProfile();
+
+            if (!profileResult.success) {
+                setLoginError("Не удалось загрузить профиль");
+                return;
+            }
+
+            setLoginEmail("");
+            setLoginPassword("");
+
+            navigate("/");
+
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRegister = async () => {
+        if (isLoading) {return;}
+
+        setIsLoading(true);
+        setRegisterError("");
+
+        try {
+            const result = await auth.registration(registerEmail, registerPassword);
+
+            if (!result.success) {
+                if (result.status === 400) {
+                    setRegisterError("Неверный формат почты или невалидный пароль");
+                } else if (result.status === 409) {
+                    setRegisterError("Такой пользователь уже существует");
+                } else {
+                    setRegisterError("Ошибка регистрации");
+                }
+
+                return;
+            }
+
+            const loginResult = await auth.login(registerEmail, registerPassword);
+
+            if (!loginResult.success) {
+                setRegisterError("Регистрация успешна, но вход не выполнен");
+                return;
+            }
+
+            const profileResult = await user.createProfile(registerEmail);
+
+            if (!profileResult.success) {
+                setRegisterError("Аккаунт создан, но профиль не создан");
+                return;
+            }
+
+            setRegisterEmail("");
+            setRegisterPassword("");
+
+            navigate("/");
+
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

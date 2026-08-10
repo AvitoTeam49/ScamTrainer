@@ -1,4 +1,4 @@
-import {makeAutoObservable} from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
 import type {LeaderBoardResponse, ProfileResponse, ProgressResponse} from "../types/types.tsx";
 import UsersService from "../services/UsersService.ts";
 import axios from "axios";
@@ -9,59 +9,67 @@ export default class User {
     leaderboard: LeaderBoardResponse | null = null;
 
     constructor() {
-        makeAutoObservable(this)
+        makeAutoObservable(this);
     }
 
-    setUser(user: ProfileResponse) {
-        this.user = user;
-    }
 
-    setProgress(progress: ProgressResponse) {
-        this.progress = progress;
-    }
+    async createProfile(username: string): Promise<{ success: boolean; status?: number; }> {
+        try {
+            const response = await UsersService.createProfile(username);
 
-    setLeaderBoard(leaderboard: LeaderBoardResponse) {
-        this.leaderboard = leaderboard;
-    }
+            runInAction(() => {
+                this.user = response.data;
+            });
 
-    async createProfile (username: string): Promise<{success: boolean, status?: number}> {
-        try{
-            const res = await UsersService.createProfile(username);
-            this.setUser(res.data)
-            return {success: true}
-        }catch(e){
-            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
+            return {success: true};
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
-    async getProfile(): Promise<{success: boolean, status?: number}>{
-        try{
-            const res = await UsersService.getUser()
-            this.setUser(res.data)
-            return {success: true}
-        }catch(e){
-            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
+    async getProfile(): Promise<{ success: boolean; status?: number; }> {
+        try {
+            const response = await UsersService.getUser();
+
+            runInAction(() => {
+                this.user = response.data;
+            });
+
+            return {success: true};
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
-    async getProgress(): Promise<{success: boolean, status?: number}>{
-        try{
-            const res = await UsersService.getProgressUser()
-            this.setProgress(res.data)
-            return {success: true}
-        }catch(e){
-            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
+    async getProgress(): Promise<{ success: boolean; status?: number; }> {
+        try {
+            const response = await UsersService.getProgressUser();
+
+            runInAction(() => {
+                this.progress = response.data;
+            });
+
+            return {success: true};
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
-    async getLeaderboard(): Promise<{success: boolean, status?: number}>{
-        try{
-            const res = await UsersService.getLeaderboard()
-            this.setLeaderBoard(res.data)
-            return {success: true}
-        }catch(e){
-            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
+    async getLeaderboard(): Promise<{ success: boolean; status?: number; }> {
+        try {
+            const response = await UsersService.getLeaderboard();
+
+            runInAction(() => {
+                this.leaderboard = response.data;
+            });
+
+            return {success: true};
+        } catch (e) {
+            return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined};
         }
     }
 
+    async refreshAfterChat() {
+        await Promise.all([this.getProfile(), this.getProgress(), this.getLeaderboard()]);
+    }
 }

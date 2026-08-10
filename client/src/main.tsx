@@ -1,5 +1,7 @@
-import {createContext} from 'react'
+import { createContext } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
+
 import App from './App.tsx'
 import Chat from "./store/Chat.ts";
 import Messages from "./store/Messages.ts";
@@ -8,7 +10,7 @@ import Auth from "./store/Auth.ts";
 import User from "./store/User.ts";
 import Scenario from "./store/Scenario.ts";
 
-interface Store{
+interface Store {
     chat: Chat,
     messages: Messages,
     menuOpen: MenuOpen,
@@ -33,16 +35,19 @@ export const Context = createContext<Store>({
     scenario
 })
 
-
 createRoot(document.getElementById('root')!).render(
-    <Context.Provider value={{
-        chat,
-        messages,
-        menuOpen,
-        auth,
-        user,
-        scenario
-    }}>
+    <BrowserRouter>
+        <Context.Provider
+            value={{
+                chat,
+                messages,
+                menuOpen,
+                auth,
+                user,
+                scenario
+            }}
+        >
             <App />
-    </Context.Provider>
+        </Context.Provider>
+    </BrowserRouter>
 )

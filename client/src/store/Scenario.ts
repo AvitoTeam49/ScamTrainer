@@ -11,14 +11,14 @@ class Scenario {
         makeAutoObservable(this)
     }
 
-    serScenarios(scenarios: IScenario[]) {
+    setScenarios(scenarios: IScenario[]) {
         this.scenarios = scenarios;
     }
 
     async getScenarios(difficulty: number): Promise<{success: boolean, scenarios?: IScenario[] ,status?: number}> {
         try{
             const response = await ScenariosService.getScenarios(difficulty);
-            this.serScenarios(response.data.items);
+            this.setScenarios(response.data.items);
             return {success: true, scenarios: response.data.items};
         }catch(e){
             return {success: false, status: axios.isAxiosError(e) ? e.response?.status : undefined}
