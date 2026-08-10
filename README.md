@@ -467,4 +467,4 @@ npm run build && npm run lint
 - Домен пользователей, аутентификации и Postgres - Александр Сорокин(tg: @impotatoess, github: [Sushka21](https://github.com/Sushka21))
 - Домен чатов, подключение DeepSeekAPI, интеграция частей проекта между собой, Postgres - Егор Ильин(tg: @Error4524, github: [@Allas122](https://github.com/Allas122))
 - Домен сценариев - Кирилл Юрдик(tg: @Maverick0987654321, github: [kirill1792](https://github.com/kirill1792))
-- Frontend - Максим Дмитров(tg: @kZuY12, github: https://github.com/peeeeeevooo)
+- Frontend - Максим Дмитров(tg: @kZuY12, github: [peeeeeevooo](https://github.com/peeeeeevooo))
