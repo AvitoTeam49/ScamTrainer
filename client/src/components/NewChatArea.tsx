@@ -9,12 +9,14 @@ const NewChatArea:FC = observer(() => {
     const [selectedRole, setSelectedRole] = useState<string | null>(null)
     const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null)
     const [isLoading, setIsLoading] = useState<boolean>(false)
+    const [createError, setCreateError] = useState<string>("")
     const navigate = useNavigate()
 
     const handleCreateChat = async () => {
         if (isLoading) {return;}
 
         setIsLoading(true);
+        setCreateError("");
 
         try {
             const difficulty = selectedDifficulty ?? 0;
@@ -24,18 +26,21 @@ const NewChatArea:FC = observer(() => {
             const scenarioResult = await scenario.getScenarios(difficulty);
 
             if (!scenarioResult.success || !scenarioResult.scenarios) {
+                setCreateError("Не удалось загрузить сценарии");
                 return;
             }
 
             const selectedScenario = scenarioResult.scenarios.find(item => item.role === role);
 
             if (!selectedScenario) {
+                setCreateError("Для этой сложности и роли пока нет сценариев");
                 return;
             }
 
             const chatResult = await chat.createChat(selectedScenario.id, selectedScenario.title);
 
             if (!chatResult.success || !chatResult.chat) {
+                setCreateError("Не удалось создать чат");
                 return;
             }
 
@@ -85,6 +90,10 @@ const NewChatArea:FC = observer(() => {
             </div>
 
             <button className="create-btn" onClick={handleCreateChat} disabled={isLoading}>Создать</button>
+
+            {createError && (
+                <div className="create-error">{createError}</div>
+            )}
         </div>
     );
 });

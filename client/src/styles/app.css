@@ -1288,6 +1288,16 @@ button {
     text-align: center;
 }
 
+.create-error {
+    margin-top: 14px;
+
+    color: var(--danger);
+
+    font-size: 14px;
+
+    text-align: center;
+}
+
 
 .app-container {
     width: 100%;
