@@ -74,8 +74,6 @@ class Chat {
 
             runInAction(() => {
                 this.currentChat = response.data;
-                this.decision = [];
-                this.warnings = [];
             });
 
             return {success: true, chat: response.data};

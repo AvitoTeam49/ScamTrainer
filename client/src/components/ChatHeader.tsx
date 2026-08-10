@@ -18,24 +18,6 @@ const ChatHeader: FC = observer(() => {
             return;
         }
 
-        const chatId = Number(id);
-
-        if (!Number.isFinite(chatId)) {
-            return;
-        }
-
-        const loadChat = async () => {
-            await chat.getChat(chatId);
-        };
-
-        loadChat();
-    }, [id, chat]);
-
-    useEffect(() => {
-        if (!id) {
-            return;
-        }
-
         const currentChat = chat.currentChat;
 
         if (currentChat?.status === "finished" || currentChat?.status === "abandoned") {
